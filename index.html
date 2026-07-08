@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Adira Semesta Industry — Hub</title>
+<link rel="stylesheet" href="./shared/styles.css">
+</head>
+<body>
+
+  <!-- ============ LOGIN SCREEN ============ -->
+  <div id="loginScreen" class="login-screen">
+    <h1>Adira Semesta Industry</h1>
+    <p style="color:var(--text-dim)">Internal App Hub — sign in dengan Google Account yang sudah terdaftar</p>
+    <button id="loginBtn" class="btn">Sign in with Google</button>
+    <div id="loginError" class="error-box" style="display:none;"></div>
+  </div>
+
+  <!-- ============ HUB (setelah login) ============ -->
+  <div id="hubScreen" style="display:none;">
+    <div class="topbar">
+      <div class="brand">ADIRA SEMESTA INDUSTRY // HUB</div>
+      <div style="display:flex;align-items:center;gap:14px;">
+        <span id="userInfo" style="font-size:0.85rem;color:var(--text-dim);"></span>
+        <button id="logoutBtn" class="btn danger">Logout</button>
+      </div>
+    </div>
+
+    <div class="container">
+      <h2 style="margin-bottom:4px;">App Portal</h2>
+      <p style="color:var(--text-dim);margin-top:0;">Pilih app yang mau dibuka</p>
+
+      <div class="card-grid" id="cardGrid">
+        <!-- Card di-generate lewat JS berdasarkan role user -->
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { loginWithGoogle, logout, watchAuthState } from "./shared/auth.js";
+
+    // Daftar app di hub ini. Tambahkan app baru di sini kalau sudah dibuat.
+    const APPS = [
+      {
+        id: "sample-wip-agent",
+        name: "Sample WIP Running Agent",
+        desc: "AI agent yang mengelola & mengambil keputusan WIP Sample Development secara otomatis — analisa, prioritas, follow up, prediksi.",
+        path: "./apps/sample-wip-agent/index.html",
+        tag: "AI AGENT"
+      }
+      // { id: "app-2", name: "...", desc: "...", path: "./apps/app-2/index.html", tag: "..." }
+    ];
+
+    const loginScreen = document.getElementById("loginScreen");
+    const hubScreen = document.getElementById("hubScreen");
+    const loginBtn = document.getElementById("loginBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const loginError = document.getElementById("loginError");
+    const userInfo = document.getElementById("userInfo");
+    const cardGrid = document.getElementById("cardGrid");
+
+    loginBtn.addEventListener("click", async () => {
+      loginError.style.display = "none";
+      try {
+        await loginWithGoogle();
+      } catch (err) {
+        loginError.textContent = err.message;
+        loginError.style.display = "block";
+      }
+    });
+
+    logoutBtn.addEventListener("click", () => logout());
+
+    watchAuthState((user) => {
+      if (!user) {
+        loginScreen.style.display = "flex";
+        hubScreen.style.display = "none";
+        return;
+      }
+
+      loginScreen.style.display = "none";
+      hubScreen.style.display = "block";
+      userInfo.textContent = `${user.name || user.email} · ${user.role}`;
+
+      // Render app cards. Semua app bisa dilihat (minimal sebagai viewer),
+      // kecuali kalau field allowedApps di-set spesifik per user.
+      cardGrid.innerHTML = "";
+      const visibleApps = user.allowedApps
+        ? APPS.filter(a => user.allowedApps.includes(a.id))
+        : APPS;
+
+      visibleApps.forEach(app => {
+        const card = document.createElement("a");
+        card.className = "app-card";
+        card.href = app.path;
+        card.innerHTML = `
+          <h3>${app.name}</h3>
+          <p>${app.desc}</p>
+          <span class="tag">${app.tag}</span>
+        `;
+        cardGrid.appendChild(card);
+      });
+    });
+  </script>
+
+</body>
+</html>

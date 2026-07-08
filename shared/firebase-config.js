@@ -6,12 +6,12 @@
 
 // TODO: ganti seluruh object di bawah ini dengan punya Bapak sendiri
 const firebaseConfig = {
-  apiKey: "GANTI_DENGAN_API_KEY",
-  authDomain: "GANTI.firebaseapp.com",
-  projectId: "GANTI_PROJECT_ID",
-  storageBucket: "GANTI.appspot.com",
-  messagingSenderId: "GANTI",
-  appId: "GANTI"
+  apiKey: "AIzaSyA8gFrWdXGIj-Jdu-DBm3xiv6PxoNYcFZk",
+  authDomain: "asi-samplerunningai-hub.firebaseapp.com",
+  projectId: "asi-samplerunningai-hub",
+  storageBucket: "asi-samplerunningai-hub.firebasestorage.app",
+  messagingSenderId: "962893895422",
+  appId: "1:962893895422:web:7680842eaaadfca447b7af"
 };
 
 // Inisialisasi Firebase (pakai Firebase v10 modular SDK dari CDN)

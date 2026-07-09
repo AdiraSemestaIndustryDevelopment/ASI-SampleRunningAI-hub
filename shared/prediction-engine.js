@@ -1,64 +1,26 @@
 // ============================================================
-// PREDICTION-ENGINE.JS — deteksi pola & potensi masalah ke depan
-// v2: kapasitas dihitung PER LOKASI (Kopo & Katapang), bukan digabung,
-// karena tiap lokasi punya jumlah operator & PIC berbeda.
-// Catatan jujur: ini heuristik rule-based, bukan machine learning
-// beneran, tapi cukup kuat untuk early-warning berbasis data riil.
+// PREDICTION-ENGINE.JS — v3: bahasa santai, ada dampak, deadline,
+// PIC, dan solusi untuk tiap masalah yang terdeteksi.
+// Tetap rule-based & transparan (bukan black-box), tapi outputnya
+// dibuat kaya konteks biar langsung actionable dibaca manusia.
 // ============================================================
 
-// Struktur tim riil di lapangan (sesuai konfirmasi Bapak Juan)
 const TEAMS = {
-  kopo: {
-    label: "Kopo",
-    pic: "Wiji",
-    cuttingOperators: 4,
-    sewingOperators: 18
-  },
-  katapang: {
-    label: "Katapang",
-    pic: "Vanny",
-    cuttingOperators: 1,
-    sewingOperators: 8
-  }
+  kopo: { label: "Kopo", pic: "Wiji", cuttingOperators: 4, sewingOperators: 18 },
+  katapang: { label: "Katapang", pic: "Vanny", cuttingOperators: 1, sewingOperators: 8 }
 };
 
-// Kapasitas cutting per operator per hari (2 metode berbeda kecepatan)
-const CUTTING_RATE_PER_OPERATOR_PER_DAY = {
-  cutter: 40,   // metode manual cutter
-  dies: 75      // metode dies (lebih cepat)
-};
-// Estimasi default: rata-rata dari 2 metode (bisa disesuaikan kalau data
-// metode per order tersedia nanti, supaya lebih presisi per style)
+const CUTTING_RATE_PER_OPERATOR_PER_DAY = { cutter: 40, dies: 75 };
 const CUTTING_RATE_AVERAGE = (CUTTING_RATE_PER_OPERATOR_PER_DAY.cutter + CUTTING_RATE_PER_OPERATOR_PER_DAY.dies) / 2;
-
-// Kapasitas sewing: 1 group (18 orang, Kopo) = 100pcs/hari -> per operator:
-const SEWING_RATE_PER_OPERATOR_PER_DAY = 100 / 18; // ≈ 5.56 pcs/operator/hari
-
+const SEWING_RATE_PER_OPERATOR_PER_DAY = 100 / 18;
 // Senin-Jumat full day (5 hari) + Sabtu setengah hari (0.5 hari) = 5.5 hari kerja/minggu
 const WORKING_DAYS_PER_WEEK = 5.5;
 
-function dailyCuttingCapacity(teamKey) {
-  const team = TEAMS[teamKey];
-  return team.cuttingOperators * CUTTING_RATE_AVERAGE;
-}
+function dailyCuttingCapacity(teamKey) { return TEAMS[teamKey].cuttingOperators * CUTTING_RATE_AVERAGE; }
+function dailySewingCapacity(teamKey) { return TEAMS[teamKey].sewingOperators * SEWING_RATE_PER_OPERATOR_PER_DAY; }
+function weeklyCuttingCapacity(teamKey) { return dailyCuttingCapacity(teamKey) * WORKING_DAYS_PER_WEEK; }
+function weeklySewingCapacity(teamKey) { return dailySewingCapacity(teamKey) * WORKING_DAYS_PER_WEEK; }
 
-function dailySewingCapacity(teamKey) {
-  const team = TEAMS[teamKey];
-  return team.sewingOperators * SEWING_RATE_PER_OPERATOR_PER_DAY;
-}
-
-function weeklyCuttingCapacity(teamKey) {
-  return dailyCuttingCapacity(teamKey) * WORKING_DAYS_PER_WEEK;
-}
-
-function weeklySewingCapacity(teamKey) {
-  return dailySewingCapacity(teamKey) * WORKING_DAYS_PER_WEEK;
-}
-
-/**
- * Cocokkan value kolom "team" di data (misal "Kopo", "KOPO", "kopo ")
- * ke key TEAMS ("kopo" / "katapang").
- */
 function matchTeamKey(teamRawValue) {
   const normalized = String(teamRawValue || "").trim().toLowerCase();
   if (normalized.includes("kopo")) return "kopo";
@@ -66,10 +28,45 @@ function matchTeamKey(teamRawValue) {
   return null;
 }
 
+// ============================================================
+// Kamus keyword -> siapa yang relevan & saran solusi.
+// Dipetakan dari struktur tim Bapak (Chamim-Technical Sewing,
+// Ase/Reza-Pattern, Munadi-QC, Yogie-Digital Print, Adhi-3D Design,
+// Lina-Glove Keeping/Material, Arlita/Vanny/Wiji-Follow Up).
+// Ini best-guess berdasarkan kata kunci; silakan dikoreksi kalau
+// PIC yang lebih tepat berbeda.
+// ============================================================
+const CAUSE_KNOWLEDGE = [
+  {
+    keywords: ["artwork", "logo", "sublime"],
+    pic: "Yogie (Digital Print)",
+    solution: "Cek antrian digital print, pastikan file artwork final sudah di-approve sebelum dikerjakan biar tidak revisi bolak-balik."
+  },
+  {
+    keywords: ["material", "kulit", "lycra", "adr", "bof"],
+    pic: "Lina (Material/Gudang)",
+    solution: "Cek stok & ETA kedatangan material ke gudang, kalau memang telat dari supplier, segera cari alternatif material pengganti yang mirip spec."
+  },
+  {
+    keywords: ["patrun", "pattern"],
+    pic: "Ase / Reza (Pattern)",
+    solution: "Prioritaskan pembuatan pattern untuk style ini duluan, cek juga apakah nunggu approval ukuran dari buyer."
+  },
+  {
+    keywords: ["3d", "design"],
+    pic: "Adhi (3D Design)",
+    solution: "Cek antrian 3D design, kalau butuh referensi tambahan dari buyer, segera minta supaya tidak nebak-nebak desain."
+  }
+];
+
+function findCauseKnowledge(causeText) {
+  const lower = String(causeText || "").toLowerCase();
+  return CAUSE_KNOWLEDGE.find(k => k.keywords.some(kw => lower.includes(kw))) || null;
+}
+
 /**
- * Prediksi overload kapasitas PER LOKASI, berdasarkan total QTY (PCS)
- * dari SMI aktif yang di-assign ke lokasi itu, dibanding kapasitas
- * mingguan cutting & sewing lokasi tersebut.
+ * Prediksi overload kapasitas PER LOKASI — dengan penjelasan dampak,
+ * deadline, PIC, dan solusi dalam bahasa santai.
  */
 function predictCapacityOverload(activeItems) {
   const warnings = [];
@@ -84,17 +81,27 @@ function predictCapacityOverload(activeItems) {
     const sewingCap = weeklySewingCapacity(teamKey);
 
     if (totalPcs > cuttingCap) {
+      const overBy = Math.round(totalPcs - cuttingCap);
       warnings.push({
         type: "cutting_overload",
-        team: team.label,
-        message: `[${team.label}] Beban cutting (${totalPcs} pcs dari SMI aktif) melebihi kapasitas estimasi minggu ini (${Math.round(cuttingCap)} pcs, ${team.cuttingOperators} operator). PIC: ${team.pic}.`
+        title: `Tim cutting ${team.label} kebanjiran order`,
+        problem: `Ada ${totalPcs} pcs yang butuh cutting minggu ini di ${team.label}, tapi kapasitas ${team.cuttingOperators} operator cuma sanggup ±${Math.round(cuttingCap)} pcs.`,
+        impact: `Kelebihan sekitar ${overBy} pcs kemungkinan besar tidak akan selesai cutting minggu ini kalau tidak ada penyesuaian.`,
+        deadlineImpact: "Style dengan due date paling dekat berisiko mundur duluan kalau antrian cutting tidak diprioritaskan ulang.",
+        pic: team.pic,
+        solution: "Prioritaskan style dengan due date terdekat duluan (lihat panel Prioritas Tinggi), atau pertimbangkan lembur/bantuan operator dari lokasi lain sementara."
       });
     }
     if (totalPcs > sewingCap) {
+      const overBy = Math.round(totalPcs - sewingCap);
       warnings.push({
         type: "sewing_overload",
-        team: team.label,
-        message: `[${team.label}] Beban sewing (${totalPcs} pcs dari SMI aktif) melebihi kapasitas estimasi minggu ini (${Math.round(sewingCap)} pcs, ${team.sewingOperators} operator). PIC: ${team.pic}.`
+        title: `Tim sewing ${team.label} kebanjiran order`,
+        problem: `Ada ${totalPcs} pcs yang butuh sewing minggu ini di ${team.label}, tapi kapasitas ${team.sewingOperators} operator cuma sanggup ±${Math.round(sewingCap)} pcs.`,
+        impact: `Kelebihan sekitar ${overBy} pcs berisiko numpuk ke minggu berikutnya.`,
+        deadlineImpact: "Sample yang harusnya dikirim minggu ini bisa mundur, terutama yang butuh banyak proses sewing detail.",
+        pic: team.pic,
+        solution: "Susun ulang prioritas sewing berdasarkan due date, atau cek apakah beberapa part bisa dibantu group sewing lokasi lain."
       });
     }
   });
@@ -112,11 +119,19 @@ function predictRecurringDelayCauses(items) {
 
   return Object.entries(counts)
     .filter(([, count]) => count >= 3)
-    .map(([cause, count]) => ({
-      cause,
-      count,
-      message: `Kendala "${cause}" terjadi berulang (${count}x). Kemungkinan masalah sistemik, bukan kasus per kasus.`
-    }))
+    .map(([cause, count]) => {
+      const knowledge = findCauseKnowledge(cause);
+      return {
+        type: "recurring_delay",
+        title: `Kendala "${cause}" kejadian berulang`,
+        problem: `Alasan "${cause}" muncul ${count} kali di data aktif — ini bukan kejadian sekali doang, kemungkinan ada masalah proses yang berulang.`,
+        impact: `Kalau dibiarkan, kendala yang sama bakal terus menghambat style-style lain yang mirip kasusnya.`,
+        deadlineImpact: "Setiap kejadian biasanya nambah beberapa hari keterlambatan — akumulasinya bisa signifikan kalau tidak dibenahi dari akarnya.",
+        pic: knowledge ? knowledge.pic : "Vanny / Wiji (Follow Up, sesuai lokasi)",
+        solution: knowledge ? knowledge.solution : "Perlu ditelusuri langsung ke tim terkait kenapa kendala ini terus berulang, supaya bisa dicari solusi permanennya.",
+        count
+      };
+    })
     .sort((a, b) => b.count - a.count);
 }
 
@@ -129,18 +144,30 @@ function predictQualityTrend(items) {
   const avgSewingReject = items.reduce((s, i) => s + numeric(i.sewing_reject), 0) / totalItems;
 
   const warnings = [];
-  const outliers = items.filter(i => numeric(i.cutting_reject) > avgCuttingReject * 2 && avgCuttingReject > 0);
-  if (outliers.length > 0) {
+  const cuttingOutliers = items.filter(i => numeric(i.cutting_reject) > avgCuttingReject * 2 && avgCuttingReject > 0);
+  if (cuttingOutliers.length > 0) {
     warnings.push({
       type: "cutting_quality",
-      message: `${outliers.length} style dengan cutting reject jauh di atas rata-rata (${avgCuttingReject.toFixed(1)}). Perlu cek pattern/material.`
+      title: "Ada style dengan reject cutting tinggi banget",
+      problem: `${cuttingOutliers.length} style reject cutting-nya jauh di atas rata-rata (rata-rata cuma ${avgCuttingReject.toFixed(1)}).`,
+      impact: "Reject tinggi berarti buang-buang material & waktu cutting ulang, ujung-ujungnya juga nambah beban ke tim cutting yang sudah sibuk.",
+      deadlineImpact: "Style ini berisiko telat karena harus cutting ulang, apalagi kalau materialnya juga terbatas.",
+      pic: "Ase / Reza (Pattern) & Munadi (QC)",
+      solution: "Cek pattern & marker-nya, kemungkinan ada kesalahan pattern atau material yang tidak sesuai spec cutting.",
+      affectedCount: cuttingOutliers.length
     });
   }
   const sewingOutliers = items.filter(i => numeric(i.sewing_reject) > avgSewingReject * 2 && avgSewingReject > 0);
   if (sewingOutliers.length > 0) {
     warnings.push({
       type: "sewing_quality",
-      message: `${sewingOutliers.length} style dengan sewing reject jauh di atas rata-rata (${avgSewingReject.toFixed(1)}). Perlu cek technical sewing.`
+      title: "Ada style dengan reject sewing tinggi banget",
+      problem: `${sewingOutliers.length} style reject sewing-nya jauh di atas rata-rata (rata-rata cuma ${avgSewingReject.toFixed(1)}).`,
+      impact: "Reject sewing biasanya berarti ada masalah di teknik jahit atau spesifikasi yang kurang jelas ke operator.",
+      deadlineImpact: "Perlu waktu tambahan buat repair/sewing ulang, yang artinya jadwal pengiriman sample bisa mundur.",
+      pic: "Chamim (Technical Sewing) & Munadi (QC)",
+      solution: "Cek detail teknik jahit yang sering salah, mungkin perlu training singkat ke operator terkait atau perjelas spec di techpack.",
+      affectedCount: sewingOutliers.length
     });
   }
   return warnings;

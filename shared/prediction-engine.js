@@ -1,42 +1,104 @@
 // ============================================================
 // PREDICTION-ENGINE.JS — deteksi pola & potensi masalah ke depan
-// Catatan jujur: ini heuristik rule-based (bukan machine learning
-// beneran), tapi sudah cukup kuat untuk early-warning karena
-// berdasarkan pola historis di data yang sama.
-// Bisa di-upgrade ke ML kalau data historis sudah cukup banyak (12+ bulan).
+// v2: kapasitas dihitung PER LOKASI (Kopo & Katapang), bukan digabung,
+// karena tiap lokasi punya jumlah operator & PIC berbeda.
+// Catatan jujur: ini heuristik rule-based, bukan machine learning
+// beneran, tapi cukup kuat untuk early-warning berbasis data riil.
 // ============================================================
 
-// Kapasitas operator riil di lapangan (sesuaikan kalau berubah)
-const CAPACITY = {
-  cutting: 5,
-  sewing: 30
+// Struktur tim riil di lapangan (sesuai konfirmasi Bapak Juan)
+const TEAMS = {
+  kopo: {
+    label: "Kopo",
+    pic: "Wiji",
+    cuttingOperators: 4,
+    sewingOperators: 18
+  },
+  katapang: {
+    label: "Katapang",
+    pic: "Vanny",
+    cuttingOperators: 1,
+    sewingOperators: 8
+  }
 };
 
-// Asumsi rata-rata sample yang bisa ditangani 1 operator per minggu.
-// TODO: Bapak koreksi angka ini berdasarkan data aktual, ini estimasi awal.
-const AVG_THROUGHPUT_PER_OPERATOR_PER_WEEK = {
-  cutting: 8,
-  sewing: 3
+// Kapasitas cutting per operator per hari (2 metode berbeda kecepatan)
+const CUTTING_RATE_PER_OPERATOR_PER_DAY = {
+  cutter: 40,   // metode manual cutter
+  dies: 75      // metode dies (lebih cepat)
 };
+// Estimasi default: rata-rata dari 2 metode (bisa disesuaikan kalau data
+// metode per order tersedia nanti, supaya lebih presisi per style)
+const CUTTING_RATE_AVERAGE = (CUTTING_RATE_PER_OPERATOR_PER_DAY.cutter + CUTTING_RATE_PER_OPERATOR_PER_DAY.dies) / 2;
 
+// Kapasitas sewing: 1 group (18 orang, Kopo) = 100pcs/hari -> per operator:
+const SEWING_RATE_PER_OPERATOR_PER_DAY = 100 / 18; // ≈ 5.56 pcs/operator/hari
+
+// Senin-Jumat full day (5 hari) + Sabtu setengah hari (0.5 hari) = 5.5 hari kerja/minggu
+const WORKING_DAYS_PER_WEEK = 5.5;
+
+function dailyCuttingCapacity(teamKey) {
+  const team = TEAMS[teamKey];
+  return team.cuttingOperators * CUTTING_RATE_AVERAGE;
+}
+
+function dailySewingCapacity(teamKey) {
+  const team = TEAMS[teamKey];
+  return team.sewingOperators * SEWING_RATE_PER_OPERATOR_PER_DAY;
+}
+
+function weeklyCuttingCapacity(teamKey) {
+  return dailyCuttingCapacity(teamKey) * WORKING_DAYS_PER_WEEK;
+}
+
+function weeklySewingCapacity(teamKey) {
+  return dailySewingCapacity(teamKey) * WORKING_DAYS_PER_WEEK;
+}
+
+/**
+ * Cocokkan value kolom "team" di data (misal "Kopo", "KOPO", "kopo ")
+ * ke key TEAMS ("kopo" / "katapang").
+ */
+function matchTeamKey(teamRawValue) {
+  const normalized = String(teamRawValue || "").trim().toLowerCase();
+  if (normalized.includes("kopo")) return "kopo";
+  if (normalized.includes("katapang")) return "katapang";
+  return null;
+}
+
+/**
+ * Prediksi overload kapasitas PER LOKASI, berdasarkan total QTY (PCS)
+ * dari SMI aktif yang di-assign ke lokasi itu, dibanding kapasitas
+ * mingguan cutting & sewing lokasi tersebut.
+ */
 function predictCapacityOverload(activeItems) {
-  const cuttingCapacityPerWeek = CAPACITY.cutting * AVG_THROUGHPUT_PER_OPERATOR_PER_WEEK.cutting;
-  const sewingCapacityPerWeek = CAPACITY.sewing * AVG_THROUGHPUT_PER_OPERATOR_PER_WEEK.sewing;
-  const activeCount = activeItems.length;
-
   const warnings = [];
-  if (activeCount > cuttingCapacityPerWeek) {
-    warnings.push({
-      type: "cutting_overload",
-      message: `Beban cutting (${activeCount} sample aktif) melebihi kapasitas estimasi minggu ini (${cuttingCapacityPerWeek}). Risiko keterlambatan di tahap cutting.`
-    });
-  }
-  if (activeCount > sewingCapacityPerWeek) {
-    warnings.push({
-      type: "sewing_overload",
-      message: `Beban sewing (${activeCount} sample aktif) melebihi kapasitas estimasi minggu ini (${sewingCapacityPerWeek}). Risiko keterlambatan di tahap sewing.`
-    });
-  }
+  const numeric = (v) => Number(v) || 0;
+
+  Object.keys(TEAMS).forEach(teamKey => {
+    const team = TEAMS[teamKey];
+    const itemsInTeam = activeItems.filter(i => matchTeamKey(i.team) === teamKey);
+    const totalPcs = itemsInTeam.reduce((sum, i) => sum + numeric(i.qty_pcs), 0);
+
+    const cuttingCap = weeklyCuttingCapacity(teamKey);
+    const sewingCap = weeklySewingCapacity(teamKey);
+
+    if (totalPcs > cuttingCap) {
+      warnings.push({
+        type: "cutting_overload",
+        team: team.label,
+        message: `[${team.label}] Beban cutting (${totalPcs} pcs dari SMI aktif) melebihi kapasitas estimasi minggu ini (${Math.round(cuttingCap)} pcs, ${team.cuttingOperators} operator). PIC: ${team.pic}.`
+      });
+    }
+    if (totalPcs > sewingCap) {
+      warnings.push({
+        type: "sewing_overload",
+        team: team.label,
+        message: `[${team.label}] Beban sewing (${totalPcs} pcs dari SMI aktif) melebihi kapasitas estimasi minggu ini (${Math.round(sewingCap)} pcs, ${team.sewingOperators} operator). PIC: ${team.pic}.`
+      });
+    }
+  });
+
   return warnings;
 }
 
@@ -97,4 +159,13 @@ function runFullPrediction(items) {
   };
 }
 
-export { runFullPrediction, predictCapacityOverload, predictRecurringDelayCauses, predictQualityTrend, CAPACITY };
+export {
+  runFullPrediction,
+  predictCapacityOverload,
+  predictRecurringDelayCauses,
+  predictQualityTrend,
+  TEAMS,
+  CUTTING_RATE_PER_OPERATOR_PER_DAY,
+  SEWING_RATE_PER_OPERATOR_PER_DAY,
+  WORKING_DAYS_PER_WEEK
+};

@@ -18,6 +18,14 @@
   .reason-list { font-size:0.72rem; color:var(--text-dim); margin:0; padding-left:16px; }
   .warn-item { padding:8px 0; border-bottom:1px solid rgba(255,200,87,0.1); font-size:0.85rem; }
   .empty-note { color:var(--text-dim); font-size:0.85rem; }
+  .predict-card {
+    background:rgba(57,255,143,0.04); border:1px solid rgba(57,255,143,0.15);
+    border-radius:10px; padding:14px 16px; margin-bottom:12px;
+  }
+  .predict-card h4 { margin:0 0 8px; color:var(--warning); font-size:0.95rem; }
+  .predict-row { font-size:0.82rem; margin:5px 0; line-height:1.5; }
+  .predict-row b { color:var(--text-main); }
+  .predict-solution { background:rgba(57,255,143,0.08); border-radius:8px; padding:8px 10px; margin-top:8px; font-size:0.8rem; }
   select#sortMode { background:var(--bg-black); color:var(--text-main); border:1px solid var(--neon-green-dim); border-radius:8px; padding:6px 10px; }
 </style>
 </head>
@@ -99,7 +107,7 @@
     import { db } from "../../shared/firebase-config.js";
     import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { rankByUrgency } from "../../shared/priority-engine.js";
-    import { detectFollowUps } from "../../shared/followup-engine.js";
+    import { detectFollowUps, runFollowUpScan } from "../../shared/followup-engine.js";
     import { runFullPrediction } from "../../shared/prediction-engine.js";
 
     const guardScreen = document.getElementById("guardScreen");
@@ -140,6 +148,11 @@
       renderFollowups(items);
       renderOverdue(ranked);
       renderPrediction(items);
+
+      // AI Agent jalan sendiri: setiap kali data berubah, otomatis deteksi
+      // & catat follow-up ke Firestore (collection "followups"), tanpa
+      // perlu manusia klik apapun. Ini "keputusan" sistem yang bisa diaudit.
+      runFollowUpScan(items).catch(err => console.error("Auto follow-up scan gagal:", err));
     }
 
     function renderKPI(ranked) {
@@ -229,7 +242,16 @@
         panel.innerHTML = `<p class="empty-note">Tidak ada sinyal masalah signifikan terdeteksi. 👍</p>`;
         return;
       }
-      panel.innerHTML = all.map(w => `<div class="warn-item">${w.message}</div>`).join("");
+      panel.innerHTML = all.map(w => `
+        <div class="predict-card">
+          <h4>⚠ ${w.title}</h4>
+          <div class="predict-row"><b>Masalahnya:</b> ${w.problem}</div>
+          <div class="predict-row"><b>Dampaknya:</b> ${w.impact}</div>
+          <div class="predict-row"><b>Ke jadwal/deadline:</b> ${w.deadlineImpact}</div>
+          <div class="predict-row"><b>Perlu di-follow up ke:</b> <span class="status-pill warn">${w.pic}</span></div>
+          <div class="predict-solution"><b>💡 Saran solusi:</b> ${w.solution}</div>
+        </div>
+      `).join("");
     }
 
     sortMode.addEventListener("change", () => {

@@ -50,13 +50,23 @@
       </div>
 
       <div class="panel">
-        <h3>⚠ Prediksi & Early Warning</h3>
-        <div id="predictionPanel"><p class="empty-note">Belum ada data cukup untuk analisa.</p></div>
+        <h3>🔥 Prioritas Tinggi (skor urgency ≥ 60)</h3>
+        <div id="priorityPanel"><p class="empty-note">Belum ada data.</p></div>
       </div>
 
       <div class="panel">
-        <h3>📋 Perlu Follow-up Hari Ini</h3>
+        <h3>📋 Perlu Follow-up — Style & Pekerjaan yang Ditagih</h3>
         <div id="followupPanel"><p class="empty-note">Belum ada data.</p></div>
+      </div>
+
+      <div class="panel">
+        <h3>⏰ Sudah Lewat Due Date</h3>
+        <div id="overduePanel"><p class="empty-note">Belum ada data.</p></div>
+      </div>
+
+      <div class="panel">
+        <h3>⚠ Prediksi & Early Warning</h3>
+        <div id="predictionPanel"><p class="empty-note">Belum ada data cukup untuk analisa.</p></div>
       </div>
 
       <div class="panel">
@@ -126,7 +136,9 @@
       const ranked = rankByUrgency(items);
       renderKPI(ranked);
       renderTable(ranked);
+      renderPriorityPanel(ranked);
       renderFollowups(items);
+      renderOverdue(ranked);
       renderPrediction(items);
     }
 
@@ -136,6 +148,38 @@
       document.getElementById("kpiOverdue").textContent = ranked.filter(i => i._urgency.remainingDays !== null && i._urgency.remainingDays < 0).length;
       const followupCount = ranked.reduce((sum, i) => sum + detectFollowUps(i).length, 0);
       document.getElementById("kpiFollowup").textContent = followupCount;
+    }
+
+    function renderPriorityPanel(ranked) {
+      const panel = document.getElementById("priorityPanel");
+      const highPriority = ranked.filter(i => i._urgency.score >= 60);
+      if (highPriority.length === 0) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada style dengan prioritas tinggi saat ini. 👍</p>`;
+        return;
+      }
+      panel.innerHTML = highPriority.map(item => `
+        <div class="warn-item">
+          <strong>${item.style || "-"}</strong> (${item.no_smi || item._sourceRow}) — ${item.customer || "-"}
+          <span class="status-pill danger" style="margin-left:8px;">Skor ${item._urgency.score}</span>
+          <ul class="reason-list">${item._urgency.reasons.map(r => `<li>${r}</li>`).join("")}</ul>
+        </div>
+      `).join("");
+    }
+
+    function renderOverdue(ranked) {
+      const panel = document.getElementById("overduePanel");
+      const overdue = ranked.filter(i => i._urgency.remainingDays !== null && i._urgency.remainingDays < 0);
+      if (overdue.length === 0) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada yang lewat due date saat ini. 👍</p>`;
+        return;
+      }
+      panel.innerHTML = overdue.map(item => `
+        <div class="warn-item">
+          <strong>${item.style || "-"}</strong> (${item.no_smi || item._sourceRow}) — ${item.customer || "-"}
+          <span class="status-pill danger" style="margin-left:8px;">Lewat ${Math.abs(item._urgency.remainingDays)} hari</span>
+          <span style="color:var(--text-dim);margin-left:8px;">Due: ${item.due_date || "-"}</span>
+        </div>
+      `).join("");
     }
 
     function renderTable(ranked) {
@@ -166,8 +210,9 @@
       }
       panel.innerHTML = all.map(f => `
         <div class="warn-item">
-          <strong>${f.style}</strong> (${f.smiId}) — ${f.label}
+          <strong>${f.style}</strong> (${f.smiId}) — <em>${f.label}</em>
           <span class="status-pill warn" style="margin-left:8px;">PIC: ${f.assignedTo}</span>
+          <span style="color:var(--text-dim);margin-left:8px;font-size:0.75rem;">${f.team}</span>
         </div>
       `).join("");
     }

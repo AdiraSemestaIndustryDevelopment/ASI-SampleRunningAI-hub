@@ -1,22 +1,39 @@
 // ============================================================
 // FOLLOWUP-ENGINE.JS — deteksi hal yang seharusnya sudah diterima
 // tapi belum, lalu catat siapa PIC yang perlu di-follow up.
-// PIC follow-up default: Vanny & Wiji (sesuai struktur tim Bapak).
+// PIC ditentukan berdasarkan LOKASI/TEAM SMI (bukan jenis masalahnya):
+//   Team Kopo     -> PIC: Wiji
+//   Team Katapang -> PIC: Vanny
 // ============================================================
 
 import { db } from "./firebase-config.js";
 import {
-  collection,
   doc,
   setDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const FOLLOWUP_PIC = ["Vanny", "Wiji"]; // sesuaikan kalau pembagian tugas berubah
+// Peta lokasi -> PIC (sesuai struktur tim Bapak)
+const TEAM_PIC_MAP = {
+  kopo: "Wiji",
+  katapang: "Vanny"
+};
+const DEFAULT_PIC = "Vanny & Wiji"; // fallback kalau kolom "team" kosong/tidak dikenali
 
 /**
- * Aturan follow-up. Setiap aturan mengecek 1 kondisi "seharusnya sudah ada
- * tapi belum ada", dan tentukan siapa yang harus ditagih.
+ * Cocokkan value kolom "team" (misal "Kopo", "KOPO ") ke key TEAM_PIC_MAP.
+ */
+function resolvePicByTeam(item) {
+  const normalized = String(item.team || "").trim().toLowerCase();
+  if (normalized.includes("kopo")) return TEAM_PIC_MAP.kopo;
+  if (normalized.includes("katapang")) return TEAM_PIC_MAP.katapang;
+  return DEFAULT_PIC;
+}
+
+/**
+ * Aturan follow-up. Setiap aturan hanya menentukan KONDISI-nya;
+ * siapa PIC-nya selalu ditentukan dari lokasi (resolvePicByTeam),
+ * bukan dari rule ini.
  */
 const RULES = [
   {
@@ -25,10 +42,8 @@ const RULES = [
     check: (item) => {
       const receivedDate = item.tgl_md_terima_techpack;
       const smiMeetingDate = item.smi_meeting;
-      // Kalau sudah waktunya SMI meeting tapi techpack belum diterima
       return smiMeetingDate && !receivedDate;
-    },
-    assignedTo: "Vanny"
+    }
   },
   {
     id: "missing_buyer_comment",
@@ -37,8 +52,7 @@ const RULES = [
       const trialDone = item.trial && String(item.trial).trim() !== "";
       const buyerCommented = item.tgl_comment_buyer && String(item.tgl_comment_buyer).trim() !== "";
       return trialDone && !buyerCommented;
-    },
-    assignedTo: "Wiji"
+    }
   },
   {
     id: "material_shortage_unresolved",
@@ -47,8 +61,7 @@ const RULES = [
       const hasNote = item.note_kurang_material && String(item.note_kurang_material).trim() !== "";
       const resolved = item.tgl_persiapan_material_selesai && String(item.tgl_persiapan_material_selesai).trim() !== "";
       return hasNote && !resolved;
-    },
-    assignedTo: "Vanny"
+    }
   },
   {
     id: "sample_overdue_not_sent",
@@ -59,22 +72,25 @@ const RULES = [
       if (!due || isNaN(due.getTime())) return false;
       const today = new Date();
       return due < today && !sent;
-    },
-    assignedTo: "Wiji"
+    }
   }
 ];
 
 /**
  * Jalankan semua rule terhadap 1 item WIP, kembalikan daftar follow-up yang perlu dibuat.
+ * PIC selalu diambil dari lokasi (team) item tersebut.
  */
 function detectFollowUps(item) {
   const results = [];
+  const pic = resolvePicByTeam(item);
+
   RULES.forEach(rule => {
     if (rule.check(item)) {
       results.push({
         ruleId: rule.id,
         label: rule.label,
-        assignedTo: rule.assignedTo,
+        assignedTo: pic,
+        team: item.team || "-",
         smiId: item.no_smi || item._sourceRow,
         style: item.style || "-"
       });
@@ -84,9 +100,7 @@ function detectFollowUps(item) {
 }
 
 /**
- * Jalankan ke semua item, dan simpan hasilnya ke Firestore collection "followups"
- * supaya dashboard bisa menampilkan daftar "yang perlu ditagih hari ini" secara real-time.
- * docId dibuat dari smiId + ruleId supaya idempotent (tidak dobel kalau dijalankan berkali-kali).
+ * Jalankan ke semua item, simpan hasilnya ke Firestore collection "followups".
  */
 async function runFollowUpScan(items) {
   const allFollowUps = [];
@@ -107,4 +121,4 @@ async function runFollowUpScan(items) {
   return allFollowUps;
 }
 
-export { detectFollowUps, runFollowUpScan, RULES, FOLLOWUP_PIC };
+export { detectFollowUps, runFollowUpScan, RULES, TEAM_PIC_MAP, resolvePicByTeam };

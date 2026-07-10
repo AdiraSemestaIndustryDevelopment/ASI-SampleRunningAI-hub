@@ -63,6 +63,11 @@
       </div>
 
       <div class="panel">
+        <h3>🔁 Trial Berulang (≥3x, sinyal masalah desain)</h3>
+        <div id="trialHistoryPanel"><p class="empty-note">Memuat data trial...</p></div>
+      </div>
+
+      <div class="panel">
         <h3>🔧 Status Proses Nyata (Artwork/Mutoh/Pattern/3D/M4)</h3>
         <p style="color:var(--text-dim);font-size:0.78rem;margin-top:-6px;">Berdasarkan log kerja asli, bukan tebakan kata kunci. Match by <b>No SMI</b> = pasti benar. Match by <b>nama Style</b> (khusus M4) = kemungkinan besar benar.</p>
         <div id="processLogPanel"><p class="empty-note">Memuat data proses...</p></div>
@@ -120,7 +125,7 @@
     import { rankByUrgency } from "../../shared/priority-engine.js";
     import { detectFollowUps, runFollowUpScan } from "../../shared/followup-engine.js";
     import { runFullPrediction } from "../../shared/prediction-engine.js";
-    import { startProcessLogListeners, checkProcessStatusForItem } from "../../shared/process-log-engine.js";
+    import { startProcessLogListeners, checkProcessStatusForItem, checkTrialHistory } from "../../shared/process-log-engine.js";
     import { loadHolidays, getHolidayName, getUpcomingHolidays } from "../../shared/holiday-utils.js";
 
     const guardScreen = document.getElementById("guardScreen");
@@ -161,6 +166,7 @@
       renderKPI(ranked);
       renderTable(ranked);
       renderHolidayPanel();
+      renderTrialHistoryPanel(items);
       renderProcessLogPanel(items);
       renderPriorityPanel(ranked);
       renderFollowups(items);
@@ -168,6 +174,33 @@
       renderPrediction(items);
 
       runFollowUpScan(items).catch(err => console.error("Auto follow-up scan gagal:", err));
+    }
+
+    function renderTrialHistoryPanel(items) {
+      const panel = document.getElementById("trialHistoryPanel");
+      const activeItems = items.filter(i => {
+        const status = String(i.active_non_active_smi || "").toLowerCase();
+        return status.includes("active") && !status.includes("non");
+      });
+
+      const findings = [];
+      activeItems.forEach(item => {
+        const result = checkTrialHistory(item);
+        if (result) findings.push({ ...result, style: item.style, smiId: item.no_smi || item._sourceRow });
+      });
+
+      if (findings.length === 0) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada style dengan trial berulang saat ini. 👍</p>`;
+        return;
+      }
+
+      panel.innerHTML = findings.map(f => `
+        <div class="warn-item">
+          <strong>${f.style}</strong> (${f.smiId}) — sudah trial <strong style="color:var(--warning);">${f.trialCount}x</strong>
+          <span class="status-pill warn" style="margin-left:8px;">PIC: ${f.pic}</span>
+          ${f.latestNote ? `<div style="color:var(--text-dim);font-size:0.75rem;margin-top:4px;">Catatan trial terakhir: "${f.latestNote}"</div>` : ""}
+        </div>
+      `).join("");
     }
 
     function renderProcessLogPanel(items) {

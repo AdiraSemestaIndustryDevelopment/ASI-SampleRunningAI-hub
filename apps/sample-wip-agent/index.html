@@ -1,267 +1,111 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sample WIP Running Agent — Adira Semesta Industry</title>
-<link rel="stylesheet" href="../../shared/styles.css">
-<style>
-  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px; margin:24px 0; }
-  .kpi { background:var(--bg-panel); border:1px solid rgba(57,255,143,0.15); border-radius:12px; padding:18px; }
-  .kpi .num { font-size:1.8rem; color:var(--neon-green); font-weight:700; }
-  .kpi .label { font-size:0.8rem; color:var(--text-dim); }
-  .panel { background:var(--bg-panel); border:1px solid rgba(57,255,143,0.15); border-radius:14px; padding:20px; margin-top:20px; }
-  .panel h3 { margin-top:0; color:var(--neon-green); font-size:1rem; }
-  table { width:100%; border-collapse:collapse; font-size:0.82rem; }
-  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid rgba(57,255,143,0.08); }
-  th { color:var(--text-dim); font-weight:600; font-size:0.75rem; text-transform:uppercase; }
-  .reason-list { font-size:0.72rem; color:var(--text-dim); margin:0; padding-left:16px; }
-  .warn-item { padding:8px 0; border-bottom:1px solid rgba(255,200,87,0.1); font-size:0.85rem; }
-  .empty-note { color:var(--text-dim); font-size:0.85rem; }
-  .predict-card {
-    background:rgba(57,255,143,0.04); border:1px solid rgba(57,255,143,0.15);
-    border-radius:10px; padding:14px 16px; margin-bottom:12px;
+// ============================================================
+// PROCESS-LOG-ENGINE.JS — menyambungkan data WIP utama ke log
+// kerja tiap spesialis (Artwork, Mutoh, Pattern, 3D, M4), supaya
+// follow-up & prediksi berbasis DATA NYATA, bukan tebakan kata kunci.
+//
+// Cara kerja:
+// 1. Muat semua collection log dari Firestore (real-time).
+// 2. Untuk 1 item WIP, cari baris log yang match:
+//    - Prioritas 1: match by No SMI (_smi_ref) -> PASTI benar.
+//    - Fallback (khusus M4, karena sheet-nya tidak punya kolom SMI):
+//      match by nama Style (_style_ref_normalized) -> KEMUNGKINAN
+//      BESAR benar, tapi bisa salah kalau ada beberapa SMI dengan
+//      nama style yang sama persis (repeat order). Ditandai jelas
+//      di UI sebagai "match by style" supaya user tahu tingkat
+//      kepercayaannya beda.
+// ============================================================
+
+import { db } from "./firebase-config.js";
+import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const PROCESS_DEFS = [
+  { key: "artwork", collection: "artwork_log", pic: "Tendi", label: "Artwork", finishField: "finish_artwork", targetField: "target_artwork" },
+  { key: "mutoh", collection: "mutoh_log", pic: "Yogie", label: "Mutoh (Digital Print)", finishField: "tgl_finish_ok_auto", targetField: "tgl_target_auto" },
+  { key: "pattern_ase", collection: "pattern_ase_log", pic: "Ase", label: "Pattern (Ase)", finishField: "finish_pattern_diserahkan_ke_sample_auto", targetField: "target_auto" },
+  { key: "pattern_reza", collection: "pattern_reza_log", pic: "Reza", label: "Pattern (Reza)", finishField: "finish_pattern_diserahkan_ke_sample_auto", targetField: "target_auto" },
+  { key: "3d", collection: "log_3d", pic: "Adhi", label: "3D Design", finishField: "finish", targetField: "target_tgl_kirim_3d_h_1" },
+  { key: "m4", collection: "m4_log", pic: "Rachmat", label: "M4 (IHP)", finishField: "tanggal_terima", targetField: "target_terima", matchBy: "style" }
+];
+
+let cachedLogs = {}; // { artwork_log: [...], mutoh_log: [...], ... }
+let listeners = [];
+
+/**
+ * Mulai dengerin semua collection log secara real-time.
+ * Panggil sekali di awal (misal saat dashboard load).
+ */
+function startProcessLogListeners(onUpdateCallback) {
+  PROCESS_DEFS.forEach(def => {
+    const unsub = onSnapshot(collection(db, def.collection), (snapshot) => {
+      cachedLogs[def.collection] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      onUpdateCallback();
+    }, (err) => {
+      console.error(`Gagal load ${def.collection}:`, err.message);
+      cachedLogs[def.collection] = cachedLogs[def.collection] || [];
+    });
+    listeners.push(unsub);
+  });
+}
+
+function stopProcessLogListeners() {
+  listeners.forEach(unsub => unsub());
+  listeners = [];
+}
+
+/**
+ * Cari semua baris log yang berhubungan dengan 1 item WIP, untuk 1 jenis proses.
+ * Return: { rows: [...], matchType: "smi" | "style" | "none" }
+ */
+function findRelatedLogRows(wipItem, def) {
+  const rows = cachedLogs[def.collection] || [];
+  const smiRef = String(wipItem.no_smi || "").trim();
+  const styleRef = String(wipItem.style || "").trim().toLowerCase();
+
+  if (def.matchBy !== "style" && smiRef) {
+    const bySmiMatch = rows.filter(r => String(r._smi_ref || "").trim() === smiRef);
+    if (bySmiMatch.length > 0) return { rows: bySmiMatch, matchType: "smi" };
   }
-  .predict-card h4 { margin:0 0 8px; color:var(--warning); font-size:0.95rem; }
-  .predict-row { font-size:0.82rem; margin:5px 0; line-height:1.5; }
-  .predict-row b { color:var(--text-main); }
-  .predict-solution { background:rgba(57,255,143,0.08); border-radius:8px; padding:8px 10px; margin-top:8px; font-size:0.8rem; }
-  select#sortMode { background:var(--bg-black); color:var(--text-main); border:1px solid var(--neon-green-dim); border-radius:8px; padding:6px 10px; }
-</style>
-</head>
-<body>
 
-  <div id="guardScreen" class="login-screen">
-    <p style="color:var(--text-dim)">Memeriksa akses...</p>
-  </div>
+  // Fallback / khusus M4: match by style
+  if (styleRef) {
+    const byStyleMatch = rows.filter(r => String(r._style_ref_normalized || "").trim() === styleRef);
+    if (byStyleMatch.length > 0) return { rows: byStyleMatch, matchType: "style" };
+  }
 
-  <div id="appScreen" style="display:none;">
-    <div class="topbar">
-      <div class="brand">SAMPLE WIP RUNNING AGENT</div>
-      <div style="display:flex;align-items:center;gap:14px;">
-        <span id="userInfo" style="font-size:0.85rem;color:var(--text-dim);"></span>
-        <a href="../../index.html" class="btn">Kembali ke Hub</a>
-      </div>
-    </div>
+  return { rows: [], matchType: "none" };
+}
 
-    <div class="container">
-      <h2 style="margin-bottom:2px;">Dashboard WIP — Sample Development</h2>
-      <p id="syncStatus" style="color:var(--text-dim);margin-top:0;">
-        <span class="status-pill warn">Menunggu data dari Firestore...</span>
-      </p>
+/**
+ * Untuk 1 item WIP, cek status di SEMUA proses (artwork, mutoh, pattern, 3d, m4).
+ * Return array temuan: proses yang belum selesai padahal seharusnya (ada baris
+ * log tapi finishField kosong), lengkap dengan PIC asli & tingkat kepercayaan match.
+ */
+function checkProcessStatusForItem(wipItem) {
+  const findings = [];
 
-      <div class="kpi-grid">
-        <div class="kpi"><div class="num" id="kpiTotal">0</div><div class="label">Total SMI Aktif</div></div>
-        <div class="kpi"><div class="num" id="kpiUrgent">0</div><div class="label">Prioritas Tinggi (skor ≥ 60)</div></div>
-        <div class="kpi"><div class="num" id="kpiFollowup">0</div><div class="label">Perlu Follow-up</div></div>
-        <div class="kpi"><div class="num" id="kpiOverdue">0</div><div class="label">Sudah Lewat Due Date</div></div>
-      </div>
+  PROCESS_DEFS.forEach(def => {
+    const { rows, matchType } = findRelatedLogRows(wipItem, def);
+    if (rows.length === 0) return; // tidak ada log terkait proses ini untuk item ini
 
-      <div class="panel">
-        <h3>🔥 Prioritas Tinggi (skor urgency ≥ 60)</h3>
-        <div id="priorityPanel"><p class="empty-note">Belum ada data.</p></div>
-      </div>
-
-      <div class="panel">
-        <h3>📋 Perlu Follow-up — Style & Pekerjaan yang Ditagih</h3>
-        <div id="followupPanel"><p class="empty-note">Belum ada data.</p></div>
-      </div>
-
-      <div class="panel">
-        <h3>⏰ Sudah Lewat Due Date</h3>
-        <div id="overduePanel"><p class="empty-note">Belum ada data.</p></div>
-      </div>
-
-      <div class="panel">
-        <h3>⚠ Prediksi & Early Warning</h3>
-        <div id="predictionPanel"><p class="empty-note">Belum ada data cukup untuk analisa.</p></div>
-      </div>
-
-      <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h3>📊 WIP List — Diurutkan Berdasarkan Urgency</h3>
-          <select id="sortMode">
-            <option value="urgency">Urutkan: Urgency</option>
-            <option value="due_date">Urutkan: Due Date</option>
-          </select>
-        </div>
-        <div style="overflow-x:auto;">
-          <table id="wipTable">
-            <thead>
-              <tr>
-                <th>Style</th><th>Customer</th><th>Status</th><th>Due Date</th>
-                <th>Sisa Hari</th><th>Skor Urgency</th><th>Alasan</th>
-              </tr>
-            </thead>
-            <tbody id="wipTableBody">
-              <tr><td colspan="7" class="empty-note">Menunggu data...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script type="module">
-    import { watchAuthState } from "../../shared/auth.js";
-    import { db } from "../../shared/firebase-config.js";
-    import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-    import { rankByUrgency } from "../../shared/priority-engine.js";
-    import { detectFollowUps, runFollowUpScan } from "../../shared/followup-engine.js";
-    import { runFullPrediction } from "../../shared/prediction-engine.js";
-
-    const guardScreen = document.getElementById("guardScreen");
-    const appScreen = document.getElementById("appScreen");
-    const userInfo = document.getElementById("userInfo");
-    const syncStatus = document.getElementById("syncStatus");
-    const sortMode = document.getElementById("sortMode");
-
-    let latestItems = [];
-
-    watchAuthState((user) => {
-      if (!user) {
-        window.location.href = "../../index.html";
-        return;
-      }
-      guardScreen.style.display = "none";
-      appScreen.style.display = "block";
-      userInfo.textContent = `${user.name || user.email} · ${user.role}`;
-      startRealtimeSync();
+    const unfinished = rows.filter(r => {
+      const finishVal = r[def.finishField];
+      return !finishVal || String(finishVal).trim() === "";
     });
 
-    function startRealtimeSync() {
-      // Real-time listener ke collection "wip_data" (diisi oleh Apps Script sync)
-      onSnapshot(collection(db, "wip_data"), (snapshot) => {
-        latestItems = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        syncStatus.innerHTML = `<span class="status-pill ok">Live · ${latestItems.length} record · update terakhir ${new Date().toLocaleTimeString('id-ID')}</span>`;
-        renderAll(latestItems);
-      }, (err) => {
-        syncStatus.innerHTML = `<span class="status-pill danger">Belum ada koneksi ke wip_data (${err.message})</span>`;
+    if (unfinished.length > 0) {
+      findings.push({
+        process: def.label,
+        pic: def.pic,
+        matchType, // "smi" (pasti) atau "style" (kemungkinan besar)
+        unfinishedCount: unfinished.length,
+        totalRows: rows.length,
+        sampleTarget: unfinished[0][def.targetField] || null,
+        sampleNote: unfinished[0].note || unfinished[0].noted || null
       });
     }
+  });
 
-    function renderAll(items) {
-      const ranked = rankByUrgency(items);
-      renderKPI(ranked);
-      renderTable(ranked);
-      renderPriorityPanel(ranked);
-      renderFollowups(items);
-      renderOverdue(ranked);
-      renderPrediction(items);
+  return findings;
+}
 
-      // AI Agent jalan sendiri: setiap kali data berubah, otomatis deteksi
-      // & catat follow-up ke Firestore (collection "followups"), tanpa
-      // perlu manusia klik apapun. Ini "keputusan" sistem yang bisa diaudit.
-      runFollowUpScan(items).catch(err => console.error("Auto follow-up scan gagal:", err));
-    }
-
-    function renderKPI(ranked) {
-      document.getElementById("kpiTotal").textContent = ranked.length;
-      document.getElementById("kpiUrgent").textContent = ranked.filter(i => i._urgency.score >= 60).length;
-      document.getElementById("kpiOverdue").textContent = ranked.filter(i => i._urgency.remainingDays !== null && i._urgency.remainingDays < 0).length;
-      const followupCount = ranked.reduce((sum, i) => sum + detectFollowUps(i).length, 0);
-      document.getElementById("kpiFollowup").textContent = followupCount;
-    }
-
-    function renderPriorityPanel(ranked) {
-      const panel = document.getElementById("priorityPanel");
-      const highPriority = ranked.filter(i => i._urgency.score >= 60);
-      if (highPriority.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada style dengan prioritas tinggi saat ini. 👍</p>`;
-        return;
-      }
-      panel.innerHTML = highPriority.map(item => `
-        <div class="warn-item">
-          <strong>${item.style || "-"}</strong> (${item.no_smi || item._sourceRow}) — ${item.customer || "-"}
-          <span class="status-pill danger" style="margin-left:8px;">Skor ${item._urgency.score}</span>
-          <ul class="reason-list">${item._urgency.reasons.map(r => `<li>${r}</li>`).join("")}</ul>
-        </div>
-      `).join("");
-    }
-
-    function renderOverdue(ranked) {
-      const panel = document.getElementById("overduePanel");
-      const overdue = ranked.filter(i => i._urgency.remainingDays !== null && i._urgency.remainingDays < 0);
-      if (overdue.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada yang lewat due date saat ini. 👍</p>`;
-        return;
-      }
-      panel.innerHTML = overdue.map(item => `
-        <div class="warn-item">
-          <strong>${item.style || "-"}</strong> (${item.no_smi || item._sourceRow}) — ${item.customer || "-"}
-          <span class="status-pill danger" style="margin-left:8px;">Lewat ${Math.abs(item._urgency.remainingDays)} hari</span>
-          <span style="color:var(--text-dim);margin-left:8px;">Due: ${item.due_date || "-"}</span>
-        </div>
-      `).join("");
-    }
-
-    function renderTable(ranked) {
-      const tbody = document.getElementById("wipTableBody");
-      if (ranked.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-note">Belum ada data. Pastikan Apps Script sync sudah jalan (lihat README).</td></tr>`;
-        return;
-      }
-      tbody.innerHTML = ranked.map(item => `
-        <tr>
-          <td>${item.style || "-"}</td>
-          <td>${item.customer || "-"}</td>
-          <td>${item.status || "-"}</td>
-          <td>${item.due_date || "-"}</td>
-          <td>${item._urgency.remainingDays !== null ? item._urgency.remainingDays + "d" : "-"}</td>
-          <td><strong style="color:var(--neon-green)">${item._urgency.score}</strong></td>
-          <td><ul class="reason-list">${item._urgency.reasons.map(r => `<li>${r}</li>`).join("") || "<li>Normal</li>"}</ul></td>
-        </tr>
-      `).join("");
-    }
-
-    function renderFollowups(items) {
-      const panel = document.getElementById("followupPanel");
-      const all = items.flatMap(i => detectFollowUps(i));
-      if (all.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada follow-up yang perlu dilakukan saat ini. 👍</p>`;
-        return;
-      }
-      panel.innerHTML = all.map(f => `
-        <div class="warn-item">
-          <strong>${f.style}</strong> (${f.smiId}) — <em>${f.label}</em>
-          <span class="status-pill warn" style="margin-left:8px;">PIC: ${f.assignedTo}</span>
-          <span style="color:var(--text-dim);margin-left:8px;font-size:0.75rem;">${f.team}</span>
-        </div>
-      `).join("");
-    }
-
-    function renderPrediction(items) {
-      const panel = document.getElementById("predictionPanel");
-      if (items.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Belum ada data cukup untuk analisa.</p>`;
-        return;
-      }
-      const result = runFullPrediction(items);
-      const all = [...result.capacity, ...result.recurringDelays, ...result.qualityTrend];
-      if (all.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada sinyal masalah signifikan terdeteksi. 👍</p>`;
-        return;
-      }
-      panel.innerHTML = all.map(w => `
-        <div class="predict-card">
-          <h4>⚠ ${w.title}</h4>
-          <div class="predict-row"><b>Masalahnya:</b> ${w.problem}</div>
-          <div class="predict-row"><b>Dampaknya:</b> ${w.impact}</div>
-          <div class="predict-row"><b>Ke jadwal/deadline:</b> ${w.deadlineImpact}</div>
-          <div class="predict-row"><b>Perlu di-follow up ke:</b> <span class="status-pill warn">${w.pic}</span></div>
-          <div class="predict-solution"><b>💡 Saran solusi:</b> ${w.solution}</div>
-        </div>
-      `).join("");
-    }
-
-    sortMode.addEventListener("change", () => {
-      let sorted = [...latestItems];
-      if (sortMode.value === "due_date") {
-        sorted = sorted.sort((a, b) => new Date(a.due_date || "9999-12-31") - new Date(b.due_date || "9999-12-31"));
-      }
-      renderAll(sorted);
-    });
-  </script>
-
-</body>
-</html>
+export { startProcessLogListeners, stopProcessLogListeners, checkProcessStatusForItem, findRelatedLogRows, PROCESS_DEFS };

@@ -24,7 +24,9 @@ const PROCESS_DEFS = [
   { key: "pattern_ase", collection: "pattern_ase_log", pic: "Ase", label: "Pattern (Ase)", finishField: "finish_pattern_diserahkan_ke_sample_auto", targetField: "target_auto" },
   { key: "pattern_reza", collection: "pattern_reza_log", pic: "Reza", label: "Pattern (Reza)", finishField: "finish_pattern_diserahkan_ke_sample_auto", targetField: "target_auto" },
   { key: "3d", collection: "log_3d", pic: "Adhi", label: "3D Design", finishField: "finish", targetField: "target_tgl_kirim_3d_h_1" },
-  { key: "m4", collection: "m4_log", pic: "Rachmat", label: "M4 (IHP)", finishField: "tanggal_terima", targetField: "target_terima", matchBy: "style" }
+  { key: "m4", collection: "m4_log", pic: "Rachmat", label: "M4 (IHP)", finishField: "tanggal_terima", targetField: "target_terima", matchBy: "style" },
+  { key: "material_leather", collection: "material_leather_log", pic: "Lina (Material/Gudang)", label: "Material Leather", finishField: "actual_terima", targetField: "planning_terima" },
+  { key: "material_non_leather", collection: "material_non_leather_log", pic: "Lina (Material/Gudang)", label: "Material Non-Leather", finishField: "actual_terima", targetField: "planning_terima" }
 ];
 
 let cachedLogs = {}; // { artwork_log: [...], mutoh_log: [...], ... }

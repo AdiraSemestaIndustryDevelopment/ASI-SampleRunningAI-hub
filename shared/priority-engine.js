@@ -5,6 +5,8 @@
 // Semua bobot (WEIGHT) bisa diubah sesuai kebijakan lapangan.
 // ============================================================
 
+import { workingDaysUntil, countHolidaysUntil } from "./holiday-utils.js";
+
 const WEIGHTS = {
   overdue: 100,          // sudah lewat due date
   dueSoon3days: 60,      // due date < 3 hari lagi
@@ -12,6 +14,7 @@ const WEIGHTS = {
   missingMaterial: 40,   // ada catatan kekurangan material
   waitingBuyerComment: 25, // trial sudah tapi belum ada comment buyer
   activeSMI: 10,         // SMI berstatus aktif (vs non-aktif, lebih rendah prioritas)
+  fewWorkingDaysLeft: 20 // sisa hari KERJA efektif tinggal sedikit (karena ada libur/weekend)
 };
 
 /**
@@ -48,6 +51,20 @@ function calculateUrgencyScore(item) {
     } else if (remainingDays <= 7) {
       score += WEIGHTS.dueSoon7days;
       reasons.push(`Due date dalam ${remainingDays} hari`);
+    }
+
+    // Cek hari kerja efektif -- kalau ada libur/weekend di antara sekarang
+    // dan due date, sisa waktu KERJA sebenarnya bisa lebih sedikit dari
+    // kelihatannya di kalender biasa.
+    if (remainingDays > 0) {
+      const workDays = workingDaysUntil(item.due_date);
+      const holidayCount = countHolidaysUntil(item.due_date);
+      if (workDays !== null && workDays <= 2 && remainingDays > 3) {
+        score += WEIGHTS.fewWorkingDaysLeft;
+        reasons.push(`Kalender bilang ${remainingDays} hari lagi, tapi hari kerja efektif cuma ~${workDays} hari (ada libur/weekend di tengah)`);
+      } else if (holidayCount > 0) {
+        reasons.push(`Ada ${holidayCount} hari libur sebelum due date, hari kerja efektif ~${workDays} hari`);
+      }
     }
   }
 

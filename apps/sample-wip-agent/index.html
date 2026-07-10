@@ -262,6 +262,7 @@
           <strong>${f.style}</strong> (${f.smiId}) — <em>${f.label}</em>
           <span class="status-pill warn" style="margin-left:8px;">PIC: ${f.assignedTo}</span>
           <span style="color:var(--text-dim);margin-left:8px;font-size:0.75rem;">${f.team}</span>
+          ${f.matchType === "style" ? `<span class="status-pill warn" style="margin-left:6px;font-size:0.68rem;">match: nama Style</span>` : ""}
         </div>
       `).join("");
     }

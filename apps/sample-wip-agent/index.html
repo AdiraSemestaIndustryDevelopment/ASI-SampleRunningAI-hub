@@ -186,6 +186,9 @@
           <span class="status-pill ${f.matchType === 'smi' ? 'ok' : 'warn'}" style="margin-left:6px;font-size:0.68rem;">
             ${f.matchType === 'smi' ? 'match: No SMI (pasti)' : 'match: nama Style (perkiraan)'}
           </span>
+          ${f.isOverdue
+            ? `<span class="status-pill danger" style="margin-left:6px;font-size:0.68rem;">TELAT</span>`
+            : `<span class="status-pill" style="margin-left:6px;font-size:0.68rem;background:rgba(122,145,135,0.15);color:var(--text-dim);">belum jatuh tempo</span>`}
           ${f.sampleTarget ? `<div style="color:var(--text-dim);font-size:0.75rem;margin-top:4px;">Target: ${f.sampleTarget}</div>` : ""}
         </div>
       `).join("");

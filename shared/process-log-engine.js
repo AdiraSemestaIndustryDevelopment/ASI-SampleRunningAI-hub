@@ -76,16 +76,41 @@ function findRelatedLogRows(wipItem, def) {
 }
 
 /**
+ * Format value tanggal dari Firestore (bisa berupa Timestamp object atau string biasa)
+ * jadi teks tanggal yang enak dibaca.
+ */
+function formatDateValue(val) {
+  if (!val) return null;
+  if (typeof val.toDate === "function") {
+    return val.toDate().toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  }
+  return String(val);
+}
+
+/**
+ * Cek apakah target date sudah lewat hari ini.
+ */
+function isTargetOverdue(val) {
+  if (!val) return false;
+  const date = typeof val.toDate === "function" ? val.toDate() : new Date(val);
+  if (isNaN(date.getTime())) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  date.setHours(0, 0, 0, 0);
+  return date < today;
+}
+
+/**
  * Untuk 1 item WIP, cek status di SEMUA proses (artwork, mutoh, pattern, 3d, m4).
- * Return array temuan: proses yang belum selesai padahal seharusnya (ada baris
- * log tapi finishField kosong), lengkap dengan PIC asli & tingkat kepercayaan match.
+ * Return array temuan: proses yang belum selesai, lengkap dengan PIC asli,
+ * tingkat kepercayaan match, dan status overdue (sudah lewat target atau belum).
  */
 function checkProcessStatusForItem(wipItem) {
   const findings = [];
 
   PROCESS_DEFS.forEach(def => {
     const { rows, matchType } = findRelatedLogRows(wipItem, def);
-    if (rows.length === 0) return; // tidak ada log terkait proses ini untuk item ini
+    if (rows.length === 0) return;
 
     const unfinished = rows.filter(r => {
       const finishVal = r[def.finishField];
@@ -93,13 +118,15 @@ function checkProcessStatusForItem(wipItem) {
     });
 
     if (unfinished.length > 0) {
+      const targetRaw = unfinished[0][def.targetField] || null;
       findings.push({
         process: def.label,
         pic: def.pic,
-        matchType, // "smi" (pasti) atau "style" (kemungkinan besar)
+        matchType,
         unfinishedCount: unfinished.length,
         totalRows: rows.length,
-        sampleTarget: unfinished[0][def.targetField] || null,
+        sampleTarget: formatDateValue(targetRaw),
+        isOverdue: isTargetOverdue(targetRaw),
         sampleNote: unfinished[0].note || unfinished[0].noted || null
       });
     }
@@ -108,4 +135,4 @@ function checkProcessStatusForItem(wipItem) {
   return findings;
 }
 
-export { startProcessLogListeners, stopProcessLogListeners, checkProcessStatusForItem, findRelatedLogRows, PROCESS_DEFS };
+export { startProcessLogListeners, stopProcessLogListeners, checkProcessStatusForItem, findRelatedLogRows, formatDateValue, isTargetOverdue, PROCESS_DEFS };

@@ -58,8 +58,18 @@
       </div>
 
       <div class="panel">
+        <h3>🔧 Kalibrasi Alat — Perlu Diperhatikan (30 hari ke depan)</h3>
+        <div id="kalibrasiPanel"><p class="empty-note">Memuat data kalibrasi...</p></div>
+      </div>
+
+      <div class="panel">
         <h3>📅 Hari Libur Mendatang (14 hari ke depan)</h3>
         <div id="holidayPanel"><p class="empty-note">Memuat data libur...</p></div>
+      </div>
+
+      <div class="panel">
+        <h3>⚠ Player Testing — Ada Hasil NOK</h3>
+        <div id="playerTestingPanel"><p class="empty-note">Memuat data player testing...</p></div>
       </div>
 
       <div class="panel">
@@ -125,8 +135,9 @@
     import { rankByUrgency } from "../../shared/priority-engine.js";
     import { detectFollowUps, runFollowUpScan } from "../../shared/followup-engine.js";
     import { runFullPrediction } from "../../shared/prediction-engine.js";
-    import { startProcessLogListeners, checkProcessStatusForItem, checkTrialHistory } from "../../shared/process-log-engine.js";
+    import { startProcessLogListeners, checkProcessStatusForItem, checkTrialHistory, checkPlayerTestingFeedback } from "../../shared/process-log-engine.js";
     import { loadHolidays, getHolidayName, getUpcomingHolidays } from "../../shared/holiday-utils.js";
+    import { startKalibrasiListener, getExpiringCalibrations } from "../../shared/kalibrasi-utils.js";
 
     const guardScreen = document.getElementById("guardScreen");
     const appScreen = document.getElementById("appScreen");
@@ -146,6 +157,7 @@
       userInfo.textContent = `${user.name || user.email} · ${user.role}`;
       loadHolidays().then(() => {
         startProcessLogListeners(() => { if (latestItems.length) renderAll(latestItems); });
+        startKalibrasiListener(renderKalibrasiPanel);
         startRealtimeSync();
       });
     });
@@ -166,6 +178,7 @@
       renderKPI(ranked);
       renderTable(ranked);
       renderHolidayPanel();
+      renderPlayerTestingPanel(items);
       renderTrialHistoryPanel(items);
       renderProcessLogPanel(items);
       renderPriorityPanel(ranked);
@@ -174,6 +187,33 @@
       renderPrediction(items);
 
       runFollowUpScan(items).catch(err => console.error("Auto follow-up scan gagal:", err));
+    }
+
+    function renderPlayerTestingPanel(items) {
+      const panel = document.getElementById("playerTestingPanel");
+      const activeItems = items.filter(i => {
+        const status = String(i.active_non_active_smi || "").toLowerCase();
+        return status.includes("active") && !status.includes("non");
+      });
+
+      const findings = [];
+      activeItems.forEach(item => {
+        const result = checkPlayerTestingFeedback(item);
+        if (result) findings.push({ ...result, style: item.style, smiId: item.no_smi || item._sourceRow });
+      });
+
+      if (findings.length === 0) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada hasil player testing NOK untuk SMI aktif saat ini. 👍</p>`;
+        return;
+      }
+
+      panel.innerHTML = findings.map(f => `
+        <div class="warn-item">
+          <strong>${f.style}</strong> (${f.smiId}) — <span class="status-pill danger">${f.nokCount} dari ${f.totalTests} test NOK</span>
+          <span class="status-pill warn" style="margin-left:8px;">PIC: ${f.pic}</span>
+          ${f.latestNote ? `<div style="color:var(--text-dim);font-size:0.75rem;margin-top:4px;">Catatan: "${f.latestNote}"</div>` : ""}
+        </div>
+      `).join("");
     }
 
     function renderTrialHistoryPanel(items) {
@@ -242,6 +282,24 @@
       document.getElementById("kpiOverdue").textContent = ranked.filter(i => i._urgency.remainingDays !== null && i._urgency.remainingDays < 0).length;
       const followupCount = ranked.reduce((sum, i) => sum + detectFollowUps(i).length, 0);
       document.getElementById("kpiFollowup").textContent = followupCount;
+    }
+
+    function renderKalibrasiPanel() {
+      const panel = document.getElementById("kalibrasiPanel");
+      const expiring = getExpiringCalibrations(30);
+      if (expiring.length === 0) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada alat yang perlu kalibrasi ulang dalam 30 hari ke depan. 👍</p>`;
+        return;
+      }
+      panel.innerHTML = expiring.map(t => `
+        <div class="warn-item">
+          <strong>${t.nama_alat || "-"}</strong> (${t.kode_alat || "-"}) — PIC: ${t.nama_pic || "-"}
+          ${t.remainingDays < 0
+            ? `<span class="status-pill danger" style="margin-left:8px;">SUDAH EXPIRED ${Math.abs(t.remainingDays)} hari lalu</span>`
+            : `<span class="status-pill warn" style="margin-left:8px;">Exp dalam ${t.remainingDays} hari</span>`}
+          <div style="color:var(--text-dim);font-size:0.75rem;margin-top:4px;">Tanggal exp: ${t.expDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+        </div>
+      `).join("");
     }
 
     function renderHolidayPanel() {

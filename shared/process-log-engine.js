@@ -16,7 +16,14 @@
 // ============================================================
 
 import { db } from "./firebase-config.js";
-import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// Interval refresh untuk collection log yang TIDAK butuh real-time detik-per-detik
+// (Artwork/Mutoh/Pattern/3D/M4/Material/TrialLog/dst). Ini sengaja BUKAN onSnapshot
+// terus-menerus, supaya tidak boros kuota baca Firestore (data ini cukup diperbarui
+// tiap beberapa menit, bukan instan).
+const REFRESH_INTERVAL_MS = 3 * 60 * 1000; // 3 menit
+let refreshTimer = null;
 
 const PROCESS_DEFS = [
   { key: "artwork", collection: "artwork_log", pic: "Tendi", label: "Artwork", finishField: "finish_artwork", targetField: "target_artwork" },
@@ -47,21 +54,32 @@ let listeners = [];
  * Mulai dengerin semua collection log secara real-time.
  * Panggil sekali di awal (misal saat dashboard load).
  */
-function startProcessLogListeners(onUpdateCallback) {
+async function loadAllLogCollectionsOnce(onUpdateCallback) {
   const allCollections = [...PROCESS_DEFS.map(d => d.collection), TRIAL_LOG_COLLECTION, PLAYER_TESTING_COLLECTION];
-  allCollections.forEach(collectionName => {
-    const unsub = onSnapshot(collection(db, collectionName), (snapshot) => {
+  await Promise.all(allCollections.map(async (collectionName) => {
+    try {
+      const snapshot = await getDocs(collection(db, collectionName));
       cachedLogs[collectionName] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-      onUpdateCallback();
-    }, (err) => {
+    } catch (err) {
       console.error(`Gagal load ${collectionName}:`, err.message);
       cachedLogs[collectionName] = cachedLogs[collectionName] || [];
-    });
-    listeners.push(unsub);
-  });
+    }
+  }));
+  onUpdateCallback();
+}
+
+function startProcessLogListeners(onUpdateCallback) {
+  // Load pertama kali langsung, lalu refresh berkala (BUKAN real-time terus-menerus)
+  // supaya hemat kuota baca Firestore -- data log proses cukup update tiap
+  // beberapa menit, tidak perlu instan seperti wip_data.
+  loadAllLogCollectionsOnce(onUpdateCallback);
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => loadAllLogCollectionsOnce(onUpdateCallback), REFRESH_INTERVAL_MS);
 }
 
 function stopProcessLogListeners() {
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = null;
   listeners.forEach(unsub => unsub());
   listeners = [];
 }

@@ -26,8 +26,19 @@ const PROCESS_DEFS = [
   { key: "3d", collection: "log_3d", pic: "Adhi", label: "3D Design", finishField: "finish", targetField: "target_tgl_kirim_3d_h_1" },
   { key: "m4", collection: "m4_log", pic: "Rachmat", label: "M4 (IHP)", finishField: "tanggal_terima", targetField: "target_terima", matchBy: "style" },
   { key: "material_leather", collection: "material_leather_log", pic: "Lina (Material/Gudang)", label: "Material Leather", finishField: "actual_terima", targetField: "planning_terima" },
-  { key: "material_non_leather", collection: "material_non_leather_log", pic: "Lina (Material/Gudang)", label: "Material Non-Leather", finishField: "actual_terima", targetField: "planning_terima" }
+  { key: "material_non_leather", collection: "material_non_leather_log", pic: "Lina (Material/Gudang)", label: "Material Non-Leather", finishField: "actual_terima", targetField: "planning_terima" },
+  { key: "sample_approved", collection: "sample_approved_log", label: "Duplicate Sample (Approved)", finishField: "tgl_finish_duplicate_sample", targetField: "target_kirim_draft_sample", matchBy: "style", dynamicPicFromTeam: true }
 ];
+
+// Fallback lokal (duplikat kecil dari followup-engine, sengaja tidak di-import
+// supaya tidak ada circular dependency antar file).
+const LOCAL_TEAM_PIC_MAP = { kopo: "Wiji", katapang: "Vanny" };
+function resolvePicFromRowTeam(row) {
+  const normalized = String(row.team || "").trim().toLowerCase();
+  if (normalized.includes("kopo")) return LOCAL_TEAM_PIC_MAP.kopo;
+  if (normalized.includes("katapang")) return LOCAL_TEAM_PIC_MAP.katapang;
+  return "Vanny & Wiji";
+}
 
 let cachedLogs = {}; // { artwork_log: [...], mutoh_log: [...], ... }
 let listeners = [];
@@ -37,7 +48,7 @@ let listeners = [];
  * Panggil sekali di awal (misal saat dashboard load).
  */
 function startProcessLogListeners(onUpdateCallback) {
-  const allCollections = [...PROCESS_DEFS.map(d => d.collection), TRIAL_LOG_COLLECTION];
+  const allCollections = [...PROCESS_DEFS.map(d => d.collection), TRIAL_LOG_COLLECTION, PLAYER_TESTING_COLLECTION];
   allCollections.forEach(collectionName => {
     const unsub = onSnapshot(collection(db, collectionName), (snapshot) => {
       cachedLogs[collectionName] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -122,9 +133,10 @@ function checkProcessStatusForItem(wipItem) {
 
     if (unfinished.length > 0) {
       const targetRaw = unfinished[0][def.targetField] || null;
+      const pic = def.dynamicPicFromTeam ? resolvePicFromRowTeam(unfinished[0]) : def.pic;
       findings.push({
         process: def.label,
-        pic: def.pic,
+        pic,
         matchType,
         unfinishedCount: unfinished.length,
         totalRows: rows.length,
@@ -139,6 +151,7 @@ function checkProcessStatusForItem(wipItem) {
 }
 
 const TRIAL_LOG_COLLECTION = "trial_log";
+const PLAYER_TESTING_COLLECTION = "player_testing_log";
 
 /**
  * Analisis riwayat trial untuk 1 item WIP -- kalau sudah trial berkali-kali,
@@ -165,4 +178,29 @@ function checkTrialHistory(wipItem, threshold = 3) {
   };
 }
 
-export { startProcessLogListeners, stopProcessLogListeners, checkProcessStatusForItem, checkTrialHistory, findRelatedLogRows, formatDateValue, isTargetOverdue, PROCESS_DEFS };
+/**
+ * Cek riwayat player testing untuk 1 style -- kalau ada hasil NOK,
+ * itu sinyal kualitas yang perlu diwaspadai (dari catatan asli, bukan tebakan).
+ * Match by nama Style saja (sheet ini tidak ada kolom No SMI).
+ */
+function checkPlayerTestingFeedback(wipItem) {
+  const rows = cachedLogs[PLAYER_TESTING_COLLECTION] || [];
+  const styleRef = String(wipItem.style || "").trim().toLowerCase();
+  if (!styleRef) return null;
+
+  const matches = rows.filter(r => String(r._style_ref_normalized || "").trim() === styleRef);
+  if (matches.length === 0) return null;
+
+  const nokMatches = matches.filter(r => String(r.hasil_ok_nok || "").toUpperCase().includes("NOK"));
+  if (nokMatches.length === 0) return null;
+
+  const latest = nokMatches[nokMatches.length - 1];
+  return {
+    nokCount: nokMatches.length,
+    totalTests: matches.length,
+    latestNote: latest.kesimpulan || latest.analisa_test || null,
+    pic: "Arlita (rekap player testing)"
+  };
+}
+
+export { startProcessLogListeners, stopProcessLogListeners, checkProcessStatusForItem, checkTrialHistory, checkPlayerTestingFeedback, findRelatedLogRows, formatDateValue, isTargetOverdue, PROCESS_DEFS };

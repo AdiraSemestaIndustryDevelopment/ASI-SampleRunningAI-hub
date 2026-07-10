@@ -103,7 +103,7 @@ function detectFollowUpsFromProcessLogs(item) {
   const findings = checkProcessStatusForItem(item).filter(f => f.isOverdue);
   return findings.map(f => ({
     ruleId: `process_${f.process.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
-    label: `${f.process} belum selesai, sudah lewat target (${f.sampleTarget || "-"})${f.matchType === "style" ? " — match by nama Style" : ""}`,
+    label: `${f.process} belum selesai, sudah lewat target (${f.sampleTarget || "-"})${f.fulfillerLabel ? ` — koordinasi ke ${f.fulfillerLabel}` : ""}${f.matchType === "style" ? " — match by nama Style" : ""}`,
     assignedTo: f.pic,
     team: item.team || "-",
     smiId: item.no_smi || item._sourceRow,

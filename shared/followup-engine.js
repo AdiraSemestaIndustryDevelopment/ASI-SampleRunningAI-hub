@@ -95,12 +95,15 @@ function detectFollowUpsFromWip(item) {
 
 /**
  * Follow-up dari log proses nyata (Artwork/Mutoh/Pattern/3D/M4).
+ * Hanya yang SUDAH LEWAT TARGET yang dianggap "perlu follow-up" —
+ * yang belum jatuh tempo tidak masuk sini (supaya tidak jadi noise),
+ * tapi tetap kelihatan di panel "Status Proses Nyata".
  */
 function detectFollowUpsFromProcessLogs(item) {
-  const findings = checkProcessStatusForItem(item);
+  const findings = checkProcessStatusForItem(item).filter(f => f.isOverdue);
   return findings.map(f => ({
     ruleId: `process_${f.process.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
-    label: `${f.process} belum selesai (${f.unfinishedCount}/${f.totalRows} baris)${f.matchType === "style" ? " — match by nama Style" : ""}`,
+    label: `${f.process} belum selesai, sudah lewat target (${f.sampleTarget || "-"})${f.matchType === "style" ? " — match by nama Style" : ""}`,
     assignedTo: f.pic,
     team: item.team || "-",
     smiId: item.no_smi || item._sourceRow,

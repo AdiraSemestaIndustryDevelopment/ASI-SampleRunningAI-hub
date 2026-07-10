@@ -5,23 +5,32 @@
 // ============================================================
 
 import { db } from "./firebase-config.js";
-import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 let cachedTools = [];
-let listener = null;
+let refreshTimer = null;
+const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 menit -- data kalibrasi jarang berubah
 
-function startKalibrasiListener(onUpdateCallback) {
-  listener = onSnapshot(collection(db, "kalibrasi_log"), (snapshot) => {
+async function loadKalibrasiOnce(onUpdateCallback) {
+  try {
+    const snapshot = await getDocs(collection(db, "kalibrasi_log"));
     cachedTools = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-    onUpdateCallback();
-  }, (err) => {
+  } catch (err) {
     console.error("Gagal load kalibrasi_log:", err.message);
     cachedTools = [];
-  });
+  }
+  onUpdateCallback();
+}
+
+function startKalibrasiListener(onUpdateCallback) {
+  loadKalibrasiOnce(onUpdateCallback);
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = setInterval(() => loadKalibrasiOnce(onUpdateCallback), REFRESH_INTERVAL_MS);
 }
 
 function stopKalibrasiListener() {
-  if (listener) listener();
+  if (refreshTimer) clearInterval(refreshTimer);
+  refreshTimer = null;
 }
 
 /**

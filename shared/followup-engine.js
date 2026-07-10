@@ -1,9 +1,14 @@
 // ============================================================
 // FOLLOWUP-ENGINE.JS — deteksi hal yang seharusnya sudah diterima
 // tapi belum, lalu catat siapa PIC yang perlu di-follow up.
-// PIC ditentukan berdasarkan LOKASI/TEAM SMI (bukan jenis masalahnya):
-//   Team Kopo     -> PIC: Wiji
-//   Team Katapang -> PIC: Vanny
+//
+// 2 sumber follow-up:
+// 1. Aturan dari sheet WIP utama (RULES) -> PIC ditentukan dari
+//    lokasi/team (Kopo -> Wiji, Katapang -> Vanny).
+// 2. Status proses nyata dari 6 log kerja spesialis (Artwork, Mutoh,
+//    Pattern, 3D, M4) via process-log-engine -> PIC ditentukan dari
+//    siapa yang benar-benar pegang proses itu (Tendi, Yogie, Ase,
+//    Reza, Adhi, Rachmat), bukan tebakan lagi.
 // ============================================================
 
 import { db } from "./firebase-config.js";
@@ -12,17 +17,11 @@ import {
   setDoc,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { checkProcessStatusForItem } from "./process-log-engine.js";
 
-// Peta lokasi -> PIC (sesuai struktur tim Bapak)
-const TEAM_PIC_MAP = {
-  kopo: "Wiji",
-  katapang: "Vanny"
-};
-const DEFAULT_PIC = "Vanny & Wiji"; // fallback kalau kolom "team" kosong/tidak dikenali
+const TEAM_PIC_MAP = { kopo: "Wiji", katapang: "Vanny" };
+const DEFAULT_PIC = "Vanny & Wiji";
 
-/**
- * Cocokkan value kolom "team" (misal "Kopo", "KOPO ") ke key TEAM_PIC_MAP.
- */
 function resolvePicByTeam(item) {
   const normalized = String(item.team || "").trim().toLowerCase();
   if (normalized.includes("kopo")) return TEAM_PIC_MAP.kopo;
@@ -30,11 +29,6 @@ function resolvePicByTeam(item) {
   return DEFAULT_PIC;
 }
 
-/**
- * Aturan follow-up. Setiap aturan hanya menentukan KONDISI-nya;
- * siapa PIC-nya selalu ditentukan dari lokasi (resolvePicByTeam),
- * bukan dari rule ini.
- */
 const RULES = [
   {
     id: "missing_techpack",
@@ -77,10 +71,9 @@ const RULES = [
 ];
 
 /**
- * Jalankan semua rule terhadap 1 item WIP, kembalikan daftar follow-up yang perlu dibuat.
- * PIC selalu diambil dari lokasi (team) item tersebut.
+ * Follow-up dari sheet WIP utama saja (rule lama).
  */
-function detectFollowUps(item) {
+function detectFollowUpsFromWip(item) {
   const results = [];
   const pic = resolvePicByTeam(item);
 
@@ -92,11 +85,36 @@ function detectFollowUps(item) {
         assignedTo: pic,
         team: item.team || "-",
         smiId: item.no_smi || item._sourceRow,
-        style: item.style || "-"
+        style: item.style || "-",
+        source: "wip"
       });
     }
   });
   return results;
+}
+
+/**
+ * Follow-up dari log proses nyata (Artwork/Mutoh/Pattern/3D/M4).
+ */
+function detectFollowUpsFromProcessLogs(item) {
+  const findings = checkProcessStatusForItem(item);
+  return findings.map(f => ({
+    ruleId: `process_${f.process.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
+    label: `${f.process} belum selesai (${f.unfinishedCount}/${f.totalRows} baris)${f.matchType === "style" ? " — match by nama Style" : ""}`,
+    assignedTo: f.pic,
+    team: item.team || "-",
+    smiId: item.no_smi || item._sourceRow,
+    style: item.style || "-",
+    source: "process_log",
+    matchType: f.matchType
+  }));
+}
+
+/**
+ * Gabungan follow-up dari kedua sumber, untuk 1 item WIP.
+ */
+function detectFollowUps(item) {
+  return [...detectFollowUpsFromWip(item), ...detectFollowUpsFromProcessLogs(item)];
 }
 
 /**
@@ -121,4 +139,4 @@ async function runFollowUpScan(items) {
   return allFollowUps;
 }
 
-export { detectFollowUps, runFollowUpScan, RULES, TEAM_PIC_MAP, resolvePicByTeam };
+export { detectFollowUps, detectFollowUpsFromWip, detectFollowUpsFromProcessLogs, runFollowUpScan, RULES, TEAM_PIC_MAP, resolvePicByTeam };

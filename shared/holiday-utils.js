@@ -7,7 +7,7 @@
 import { db } from "./firebase-config.js";
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-let holidaySet = null; // Set of "yyyy-MM-dd" strings, di-cache setelah load pertama
+let holidayMap = null; // Map "yyyy-MM-dd" -> nama hari libur, di-cache setelah load pertama
 
 function formatDateKey(date) {
   const y = date.getFullYear();
@@ -19,23 +19,57 @@ function formatDateKey(date) {
 /**
  * Muat daftar hari libur dari Firestore (sekali saja, di-cache).
  * Panggil ini sekali di awal (misal saat dashboard load) sebelum
- * memakai workingDaysUntil().
+ * memakai fungsi-fungsi lain di file ini.
  */
 async function loadHolidays() {
-  if (holidaySet) return holidaySet;
+  if (holidayMap) return holidayMap;
+  holidayMap = new Map();
   try {
     const snapshot = await getDocs(collection(db, "holidays"));
-    holidaySet = new Set(snapshot.docs.map(d => d.id));
+    snapshot.docs.forEach(d => {
+      const data = d.data();
+      holidayMap.set(d.id, data.hari || "Libur");
+    });
   } catch (err) {
     console.error("Gagal load kalender libur:", err.message);
-    holidaySet = new Set(); // fallback: anggap tidak ada libur, tetap jalan
   }
-  return holidaySet;
+  return holidayMap;
 }
 
 function isHoliday(date) {
-  if (!holidaySet) return false;
-  return holidaySet.has(formatDateKey(date));
+  if (!holidayMap) return false;
+  return holidayMap.has(formatDateKey(date));
+}
+
+/**
+ * Nama hari libur untuk 1 tanggal tertentu (misal dari kolom due_date),
+ * atau null kalau bukan hari libur.
+ */
+function getHolidayName(dateValue) {
+  if (!holidayMap || !dateValue) return null;
+  const date = new Date(dateValue);
+  if (isNaN(date.getTime())) return null;
+  return holidayMap.get(formatDateKey(date)) || null;
+}
+
+/**
+ * Daftar hari libur dalam N hari ke depan dari hari ini, urut tanggal.
+ */
+function getUpcomingHolidays(daysAhead = 14) {
+  if (!holidayMap) return [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const limit = new Date(today);
+  limit.setDate(limit.getDate() + daysAhead);
+
+  const result = [];
+  holidayMap.forEach((name, dateKey) => {
+    const date = new Date(dateKey + "T00:00:00");
+    if (date >= today && date <= limit) {
+      result.push({ date, name });
+    }
+  });
+  return result.sort((a, b) => a.date - b.date);
 }
 
 /**
@@ -75,8 +109,8 @@ function workingDaysUntil(targetDateValue) {
 }
 
 /**
- * Hitung berapa hari libur (termasuk Minggu) ada di antara hari ini
- * dan tanggal target -- dipakai untuk kasih konteks di alasan urgency.
+ * Hitung berapa hari libur ada di antara hari ini dan tanggal target --
+ * dipakai untuk kasih konteks di alasan urgency.
  */
 function countHolidaysUntil(targetDateValue) {
   if (!targetDateValue) return 0;
@@ -97,4 +131,4 @@ function countHolidaysUntil(targetDateValue) {
   return count;
 }
 
-export { loadHolidays, isHoliday, workingDaysUntil, countHolidaysUntil };
+export { loadHolidays, isHoliday, getHolidayName, getUpcomingHolidays, workingDaysUntil, countHolidaysUntil };

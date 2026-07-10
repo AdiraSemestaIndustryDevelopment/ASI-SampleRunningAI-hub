@@ -58,6 +58,11 @@
       </div>
 
       <div class="panel">
+        <h3>📅 Hari Libur Mendatang (14 hari ke depan)</h3>
+        <div id="holidayPanel"><p class="empty-note">Memuat data libur...</p></div>
+      </div>
+
+      <div class="panel">
         <h3>🔧 Status Proses Nyata (Artwork/Mutoh/Pattern/3D/M4)</h3>
         <p style="color:var(--text-dim);font-size:0.78rem;margin-top:-6px;">Berdasarkan log kerja asli, bukan tebakan kata kunci. Match by <b>No SMI</b> = pasti benar. Match by <b>nama Style</b> (khusus M4) = kemungkinan besar benar.</p>
         <div id="processLogPanel"><p class="empty-note">Memuat data proses...</p></div>
@@ -116,6 +121,8 @@
     import { detectFollowUps, runFollowUpScan } from "../../shared/followup-engine.js";
     import { runFullPrediction } from "../../shared/prediction-engine.js";
     import { startProcessLogListeners, checkProcessStatusForItem } from "../../shared/process-log-engine.js";
+    import { loadHolidays } from "../../shared/holiday-utils.js";
+    import { startHolidayListener, getHolidayName, getUpcomingHolidays } from "../../shared/holiday-engine.js";
 
     const guardScreen = document.getElementById("guardScreen");
     const appScreen = document.getElementById("appScreen");
@@ -133,8 +140,10 @@
       guardScreen.style.display = "none";
       appScreen.style.display = "block";
       userInfo.textContent = `${user.name || user.email} · ${user.role}`;
-      startProcessLogListeners(() => { if (latestItems.length) renderAll(latestItems); });
-      startRealtimeSync();
+      loadHolidays().then(() => {
+        startProcessLogListeners(() => { if (latestItems.length) renderAll(latestItems); });
+        startRealtimeSync();
+      });
     });
 
     function startRealtimeSync() {
@@ -152,6 +161,7 @@
       const ranked = rankByUrgency(items);
       renderKPI(ranked);
       renderTable(ranked);
+      renderHolidayPanel();
       renderProcessLogPanel(items);
       renderPriorityPanel(ranked);
       renderFollowups(items);
@@ -202,6 +212,21 @@
       document.getElementById("kpiFollowup").textContent = followupCount;
     }
 
+    function renderHolidayPanel() {
+      const panel = document.getElementById("holidayPanel");
+      const upcoming = getUpcomingHolidays(14);
+      if (upcoming.length === 0) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada hari libur dalam 14 hari ke depan.</p>`;
+        return;
+      }
+      panel.innerHTML = upcoming.map(h => `
+        <div class="warn-item">
+          <strong>${h.date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</strong>
+          <span style="color:var(--text-dim);margin-left:8px;">${h.name}</span>
+        </div>
+      `).join("");
+    }
+
     function renderPriorityPanel(ranked) {
       const panel = document.getElementById("priorityPanel");
       const highPriority = ranked.filter(i => i._urgency.score >= 60);
@@ -240,17 +265,20 @@
         tbody.innerHTML = `<tr><td colspan="7" class="empty-note">Belum ada data. Pastikan Apps Script sync sudah jalan (lihat README).</td></tr>`;
         return;
       }
-      tbody.innerHTML = ranked.map(item => `
+      tbody.innerHTML = ranked.map(item => {
+        const holidayName = item.due_date ? getHolidayName(item.due_date) : null;
+        return `
         <tr>
           <td>${item.style || "-"}</td>
           <td>${item.customer || "-"}</td>
           <td>${item.status || "-"}</td>
-          <td>${item.due_date || "-"}</td>
+          <td>${item.due_date || "-"}${holidayName ? `<br><span class="status-pill danger" style="font-size:0.65rem;">Jatuh di hari libur: ${holidayName}</span>` : ""}</td>
           <td>${item._urgency.remainingDays !== null ? item._urgency.remainingDays + "d" : "-"}</td>
           <td><strong style="color:var(--neon-green)">${item._urgency.score}</strong></td>
           <td><ul class="reason-list">${item._urgency.reasons.map(r => `<li>${r}</li>`).join("") || "<li>Normal</li>"}</ul></td>
         </tr>
-      `).join("");
+      `;
+      }).join("");
     }
 
     function renderFollowups(items) {

@@ -37,13 +37,14 @@ let listeners = [];
  * Panggil sekali di awal (misal saat dashboard load).
  */
 function startProcessLogListeners(onUpdateCallback) {
-  PROCESS_DEFS.forEach(def => {
-    const unsub = onSnapshot(collection(db, def.collection), (snapshot) => {
-      cachedLogs[def.collection] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  const allCollections = [...PROCESS_DEFS.map(d => d.collection), TRIAL_LOG_COLLECTION];
+  allCollections.forEach(collectionName => {
+    const unsub = onSnapshot(collection(db, collectionName), (snapshot) => {
+      cachedLogs[collectionName] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
       onUpdateCallback();
     }, (err) => {
-      console.error(`Gagal load ${def.collection}:`, err.message);
-      cachedLogs[def.collection] = cachedLogs[def.collection] || [];
+      console.error(`Gagal load ${collectionName}:`, err.message);
+      cachedLogs[collectionName] = cachedLogs[collectionName] || [];
     });
     listeners.push(unsub);
   });
@@ -137,4 +138,31 @@ function checkProcessStatusForItem(wipItem) {
   return findings;
 }
 
-export { startProcessLogListeners, stopProcessLogListeners, checkProcessStatusForItem, findRelatedLogRows, formatDateValue, isTargetOverdue, PROCESS_DEFS };
+const TRIAL_LOG_COLLECTION = "trial_log";
+
+/**
+ * Analisis riwayat trial untuk 1 item WIP -- kalau sudah trial berkali-kali,
+ * itu sinyal ada masalah desain/pattern yang berulang, bukan cuma kelamaan biasa.
+ * Berbeda dari PROCESS_DEFS (yang cek "belum selesai"), ini cek "seberapa
+ * sering diulang" -- trial_log murni catatan riwayat, bukan tugas dengan deadline.
+ */
+function checkTrialHistory(wipItem, threshold = 3) {
+  const rows = cachedLogs[TRIAL_LOG_COLLECTION] || [];
+  const smiRef = String(wipItem.no_smi || "").trim();
+  if (!smiRef) return null;
+
+  const trials = rows.filter(r => String(r._smi_ref || "").trim() === smiRef);
+  if (trials.length < threshold) return null;
+
+  // Urutkan berdasarkan "trial_ke" kalau ada, ambil catatan trial terakhir
+  const sorted = [...trials].sort((a, b) => (Number(a.trial_ke) || 0) - (Number(b.trial_ke) || 0));
+  const latest = sorted[sorted.length - 1];
+
+  return {
+    trialCount: trials.length,
+    latestNote: latest.note_trial || latest.note || null,
+    pic: "Ase / Reza (Pattern)"
+  };
+}
+
+export { startProcessLogListeners, stopProcessLogListeners, checkProcessStatusForItem, checkTrialHistory, findRelatedLogRows, formatDateValue, isTargetOverdue, PROCESS_DEFS };

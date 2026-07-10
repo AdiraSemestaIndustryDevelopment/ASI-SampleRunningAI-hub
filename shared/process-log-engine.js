@@ -32,8 +32,8 @@ const PROCESS_DEFS = [
   { key: "pattern_reza", collection: "pattern_reza_log", pic: "Reza", label: "Pattern (Reza)", finishField: "finish_pattern_diserahkan_ke_sample_auto", targetField: "target_auto" },
   { key: "3d", collection: "log_3d", pic: "Adhi", label: "3D Design", finishField: "finish", targetField: "target_tgl_kirim_3d_h_1" },
   { key: "m4", collection: "m4_log", pic: "Rachmat", label: "M4 (IHP)", finishField: "tanggal_terima", targetField: "target_terima", matchBy: "style" },
-  { key: "material_leather", collection: "material_leather_log", pic: "Lina (Material/Gudang)", label: "Material Leather", finishField: "actual_terima", targetField: "planning_terima" },
-  { key: "material_non_leather", collection: "material_non_leather_log", pic: "Lina (Material/Gudang)", label: "Material Non-Leather", finishField: "actual_terima", targetField: "planning_terima" },
+  { key: "material_leather", collection: "material_leather_log", label: "Material Leather", finishField: "actual_terima", targetField: "planning_terima", dynamicPicFromTeam: true, fulfillerLabel: "Tanery (Calvin / Andre)" },
+  { key: "material_non_leather", collection: "material_non_leather_log", label: "Material Non-Leather", finishField: "actual_terima", targetField: "planning_terima", dynamicPicFromTeam: true, fulfillerLabel: "Sourcing (Dian / Irene)" },
   { key: "sample_approved", collection: "sample_approved_log", label: "Duplicate Sample (Approved)", finishField: "tgl_finish_duplicate_sample", targetField: "target_kirim_draft_sample", matchBy: "style", dynamicPicFromTeam: true }
 ];
 
@@ -155,6 +155,7 @@ function checkProcessStatusForItem(wipItem) {
       findings.push({
         process: def.label,
         pic,
+        fulfillerLabel: def.fulfillerLabel || null,
         matchType,
         unfinishedCount: unfinished.length,
         totalRows: rows.length,

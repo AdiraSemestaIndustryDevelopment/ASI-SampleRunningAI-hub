@@ -194,5 +194,8 @@ export {
   TEAMS,
   CUTTING_RATE_PER_OPERATOR_PER_DAY,
   SEWING_RATE_PER_OPERATOR_PER_DAY,
-  WORKING_DAYS_PER_WEEK
+  WORKING_DAYS_PER_WEEK,
+  dailyCuttingCapacity,
+  dailySewingCapacity,
+  matchTeamKey
 };

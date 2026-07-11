@@ -26,6 +26,10 @@
   .predict-row { font-size:0.82rem; margin:5px 0; line-height:1.5; }
   .predict-row b { color:var(--text-main); }
   .predict-solution { background:rgba(57,255,143,0.08); border-radius:8px; padding:8px 10px; margin-top:8px; font-size:0.8rem; }
+  .schedule-team { margin-bottom:18px; }
+  .schedule-team h4 { color:var(--neon-green); font-size:0.95rem; margin-bottom:8px; }
+  .schedule-item { display:flex; justify-content:space-between; padding:6px 10px; border-bottom:1px solid rgba(57,255,143,0.06); font-size:0.82rem; }
+  .schedule-item .qty { color:var(--text-dim); font-size:0.75rem; }
   select#sortMode { background:var(--bg-black); color:var(--text-main); border:1px solid var(--neon-green-dim); border-radius:8px; padding:6px 10px; }
 </style>
 </head>
@@ -55,6 +59,17 @@
         <div class="kpi"><div class="num" id="kpiUrgent">0</div><div class="label">Prioritas Tinggi (skor ≥ 60)</div></div>
         <div class="kpi"><div class="num" id="kpiFollowup">0</div><div class="label">Perlu Follow-up</div></div>
         <div class="kpi"><div class="num" id="kpiOverdue">0</div><div class="label">Sudah Lewat Due Date</div></div>
+      </div>
+
+      <div class="panel" style="border-color:rgba(57,255,143,0.35);">
+        <h3>☀ Ringkasan Pagi Ini</h3>
+        <div id="dailySummaryPanel"><p class="empty-note">Memuat ringkasan...</p></div>
+      </div>
+
+      <div class="panel">
+        <h3>📅 Jadwal Produksi Hari Ini (Rekomendasi AI)</h3>
+        <p style="color:var(--text-dim);font-size:0.78rem;margin-top:-6px;">Disusun otomatis dari urgency + kapasitas harian riil tiap lokasi. Bottleneck = proses yang jadi penghambat (cutting atau sewing).</p>
+        <div id="schedulePanel"><p class="empty-note">Menyusun jadwal...</p></div>
       </div>
 
       <div class="panel">
@@ -131,13 +146,14 @@
   <script type="module">
     import { watchAuthState } from "../../shared/auth.js";
     import { db } from "../../shared/firebase-config.js";
-    import { collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { collection, onSnapshot, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { rankByUrgency } from "../../shared/priority-engine.js";
     import { detectFollowUps, runFollowUpScan } from "../../shared/followup-engine.js";
     import { runFullPrediction } from "../../shared/prediction-engine.js";
     import { startProcessLogListeners, checkProcessStatusForItem, checkTrialHistory, checkPlayerTestingFeedback } from "../../shared/process-log-engine.js";
     import { loadHolidays, getHolidayName, getUpcomingHolidays } from "../../shared/holiday-utils.js";
     import { startKalibrasiListener, getExpiringCalibrations } from "../../shared/kalibrasi-utils.js";
+    import { generateDailySchedule } from "../../shared/schedule-engine.js";
 
     const guardScreen = document.getElementById("guardScreen");
     const appScreen = document.getElementById("appScreen");
@@ -158,6 +174,7 @@
       loadHolidays().then(() => {
         startProcessLogListeners(() => { if (latestItems.length) renderDisplay(latestItems); });
         startKalibrasiListener(renderKalibrasiPanel);
+        loadDailySummary();
         startRealtimeSync();
       });
     });
@@ -185,6 +202,7 @@
       const ranked = rankByUrgency(items);
       renderKPI(ranked);
       renderTable(ranked);
+      renderSchedulePanel(items);
       renderHolidayPanel();
       renderPlayerTestingPanel(items);
       renderTrialHistoryPanel(items);
@@ -281,6 +299,71 @@
           ${f.sampleTarget ? `<div style="color:var(--text-dim);font-size:0.75rem;margin-top:4px;">Target: ${f.sampleTarget}</div>` : ""}
         </div>
       `).join("");
+    }
+
+    async function loadDailySummary() {
+      const panel = document.getElementById("dailySummaryPanel");
+      try {
+        const snapshot = await getDoc(doc(db, "daily_summary", "latest"));
+        if (!snapshot.exists()) {
+          panel.innerHTML = `<p class="empty-note">Belum ada ringkasan. Jalankan "generateDailySummary" di Apps Script, atau tunggu trigger otomatis jam 7 pagi.</p>`;
+          return;
+        }
+        const data = snapshot.data();
+        const generatedTime = data.generatedAt ? new Date(data.generatedAt).toLocaleString('id-ID') : "-";
+        const sourceTag = data.source === "claude_ai"
+          ? `<span class="status-pill ok" style="font-size:0.65rem;">Ditulis Claude AI</span>`
+          : `<span class="status-pill" style="font-size:0.65rem;background:rgba(122,145,135,0.15);color:var(--text-dim);">Template otomatis</span>`;
+        panel.innerHTML = `
+          <p style="font-size:0.95rem;line-height:1.6;">${data.summaryText || "-"}</p>
+          <div style="margin-top:8px;">${sourceTag} <span style="color:var(--text-dim);font-size:0.72rem;margin-left:8px;">Dibuat: ${generatedTime}</span></div>
+        `;
+      } catch (err) {
+        panel.innerHTML = `<p class="empty-note">Gagal load ringkasan: ${err.message}</p>`;
+      }
+    }
+
+    function renderSchedulePanel(items) {
+      const panel = document.getElementById("schedulePanel");
+      const schedule = generateDailySchedule(items);
+      const teamKeys = Object.keys(schedule);
+
+      if (teamKeys.every(k => schedule[k].today.length === 0)) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada SMI aktif untuk dijadwalkan saat ini.</p>`;
+        return;
+      }
+
+      panel.innerHTML = teamKeys.map(teamKey => {
+        const s = schedule[teamKey];
+        const overCapacity = s.todayTotalPcs > s.dailyCapacity;
+        return `
+          <div class="schedule-team">
+            <h4>${s.teamLabel} — PIC: ${s.pic}
+              <span class="status-pill ${overCapacity ? 'danger' : 'ok'}" style="margin-left:8px;font-size:0.68rem;">
+                ${s.todayTotalPcs} / ${s.dailyCapacity} pcs kapasitas harian
+              </span>
+              <span class="status-pill warn" style="margin-left:6px;font-size:0.68rem;">bottleneck: ${s.bottleneck}</span>
+            </h4>
+            <div style="font-size:0.78rem;color:var(--text-dim);margin-bottom:6px;">Kerjakan hari ini (${s.today.length} style):</div>
+            ${s.today.length === 0 ? `<p class="empty-note">Tidak ada.</p>` : s.today.map(item => `
+              <div class="schedule-item">
+                <span>${item.style || "-"} (${item.no_smi || item._sourceRow})</span>
+                <span class="qty">${item.qty_pcs || 0} pcs · skor ${item._urgency.score}</span>
+              </div>
+            `).join("")}
+            ${s.next.length > 0 ? `
+              <div style="font-size:0.78rem;color:var(--text-dim);margin:10px 0 6px;">Antrian berikutnya (${s.next.length} style):</div>
+              ${s.next.slice(0, 5).map(item => `
+                <div class="schedule-item" style="opacity:0.6;">
+                  <span>${item.style || "-"} (${item.no_smi || item._sourceRow})</span>
+                  <span class="qty">${item.qty_pcs || 0} pcs</span>
+                </div>
+              `).join("")}
+              ${s.next.length > 5 ? `<div style="color:var(--text-dim);font-size:0.72rem;margin-top:4px;">+ ${s.next.length - 5} style lagi...</div>` : ""}
+            ` : ""}
+          </div>
+        `;
+      }).join("");
     }
 
     function renderKPI(ranked) {

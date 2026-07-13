@@ -102,18 +102,29 @@ function detectFollowUpsFromWip(item) {
  * yang belum jatuh tempo tidak masuk sini (supaya tidak jadi noise),
  * tapi tetap kelihatan di panel "Status Proses Nyata".
  */
+const DEADLINE_APPROACHING_DAYS = 3; // ikut ditampilkan kalau sisa hari <= ini
+
 function detectFollowUpsFromProcessLogs(item) {
-  const findings = checkProcessStatusForItem(item).filter(f => f.isOverdue);
-  return findings.map(f => ({
-    ruleId: `process_${f.process.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
-    label: `${f.process} belum selesai, sudah lewat target (${f.sampleTarget || "-"})${f.fulfillerLabel ? ` — koordinasi ke ${f.fulfillerLabel}` : ""}${f.matchType === "style" ? " — match by nama Style" : ""}`,
-    assignedTo: f.pic,
-    team: item.team || "-",
-    smiId: item.no_smi || item._sourceRow,
-    style: item.style || "-",
-    source: "process_log",
-    matchType: f.matchType
-  }));
+  const findings = checkProcessStatusForItem(item).filter(f =>
+    f.isOverdue || (f.daysUntilTarget !== null && f.daysUntilTarget <= DEADLINE_APPROACHING_DAYS)
+  );
+  return findings.map(f => {
+    const urgencyLabel = f.isOverdue
+      ? `sudah lewat target (${f.sampleTarget || "-"})`
+      : `deadline mendekat, ${f.daysUntilTarget} hari lagi (${f.sampleTarget || "-"})`;
+    return {
+      ruleId: `process_${f.process.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`,
+      label: `${f.process} belum selesai, ${urgencyLabel}${f.fulfillerLabel ? ` — koordinasi ke ${f.fulfillerLabel}` : ""}${f.matchType === "style" ? " — match by nama Style" : ""}`,
+      assignedTo: f.pic,
+      team: item.team || "-",
+      smiId: item.no_smi || item._sourceRow,
+      style: item.style || "-",
+      source: "process_log",
+      matchType: f.matchType,
+      isOverdue: f.isOverdue,
+      daysUntilTarget: f.daysUntilTarget
+    };
+  });
 }
 
 /**

@@ -8,8 +8,8 @@ import { db } from "./firebase-config.js";
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 let cachedTools = [];
+const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 menit -- samakan dengan modul lain
 let refreshTimer = null;
-const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 menit -- data kalibrasi jarang berubah
 
 async function loadKalibrasiOnce(onUpdateCallback) {
   try {
@@ -22,10 +22,20 @@ async function loadKalibrasiOnce(onUpdateCallback) {
   onUpdateCallback();
 }
 
+/**
+ * Panggil sekali saat dashboard dibuka, lalu auto-refresh tiap 15 menit.
+ */
 function startKalibrasiListener(onUpdateCallback) {
   loadKalibrasiOnce(onUpdateCallback);
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = setInterval(() => loadKalibrasiOnce(onUpdateCallback), REFRESH_INTERVAL_MS);
+}
+
+/**
+ * Panggil manual (misal dari tombol "Refresh") untuk data terbaru.
+ */
+function refreshKalibrasi(onUpdateCallback) {
+  return loadKalibrasiOnce(onUpdateCallback);
 }
 
 function stopKalibrasiListener() {
@@ -56,4 +66,4 @@ function getExpiringCalibrations(daysAhead = 30) {
     .sort((a, b) => a.remainingDays - b.remainingDays);
 }
 
-export { startKalibrasiListener, stopKalibrasiListener, getExpiringCalibrations };
+export { startKalibrasiListener, refreshKalibrasi, stopKalibrasiListener, getExpiringCalibrations };

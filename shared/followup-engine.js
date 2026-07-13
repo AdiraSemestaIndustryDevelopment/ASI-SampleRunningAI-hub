@@ -10,7 +10,7 @@
 //    siapa yang benar-benar pegang proses itu (Tendi, Yogie, Ase,
 //    Reza, Adhi, Rachmat), bukan tebakan lagi.
 // ============================================================
-
+ 
 import { db } from "./firebase-config.js";
 import {
   doc,
@@ -21,17 +21,17 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { checkProcessStatusForItem } from "./process-log-engine.js";
-
+ 
 const TEAM_PIC_MAP = { kopo: "Wiji", katapang: "Vanny" };
 const DEFAULT_PIC = "Vanny & Wiji";
-
+ 
 function resolvePicByTeam(item) {
   const normalized = String(item.team || "").trim().toLowerCase();
   if (normalized.includes("kopo")) return TEAM_PIC_MAP.kopo;
   if (normalized.includes("katapang")) return TEAM_PIC_MAP.katapang;
   return DEFAULT_PIC;
 }
-
+ 
 const RULES = [
   {
     id: "missing_techpack",
@@ -72,14 +72,14 @@ const RULES = [
     }
   }
 ];
-
+ 
 /**
  * Follow-up dari sheet WIP utama saja (rule lama).
  */
 function detectFollowUpsFromWip(item) {
   const results = [];
   const pic = resolvePicByTeam(item);
-
+ 
   RULES.forEach(rule => {
     if (rule.check(item)) {
       results.push({
@@ -95,7 +95,7 @@ function detectFollowUpsFromWip(item) {
   });
   return results;
 }
-
+ 
 /**
  * Follow-up dari log proses nyata (Artwork/Mutoh/Pattern/3D/M4).
  * Hanya yang SUDAH LEWAT TARGET yang dianggap "perlu follow-up" —
@@ -103,7 +103,7 @@ function detectFollowUpsFromWip(item) {
  * tapi tetap kelihatan di panel "Status Proses Nyata".
  */
 const DEADLINE_APPROACHING_DAYS = 3; // ikut ditampilkan kalau sisa hari <= ini
-
+ 
 function detectFollowUpsFromProcessLogs(item) {
   const findings = checkProcessStatusForItem(item).filter(f =>
     f.isOverdue || (f.daysUntilTarget !== null && f.daysUntilTarget <= DEADLINE_APPROACHING_DAYS)
@@ -126,21 +126,21 @@ function detectFollowUpsFromProcessLogs(item) {
     };
   });
 }
-
+ 
 /**
  * Gabungan follow-up dari kedua sumber, untuk 1 item WIP.
  */
 function detectFollowUps(item) {
   return [...detectFollowUpsFromWip(item), ...detectFollowUpsFromProcessLogs(item)];
 }
-
+ 
 /**
  * Jalankan ke semua item, simpan hasilnya ke Firestore collection "followups".
  */
 async function runFollowUpScan(items) {
   const currentFollowUps = [];
   const currentDocIds = new Set();
-
+ 
   for (const item of items) {
     const followUps = detectFollowUps(item);
     for (const f of followUps) {
@@ -149,7 +149,7 @@ async function runFollowUpScan(items) {
       currentFollowUps.push({ docId, f });
     }
   }
-
+ 
   // Tulis/perbarui yang MASIH terdeteksi. Sengaja tidak menyentuh field
   // "status" di sini -- kalau dokumen sudah ada (baik "open" maupun
   // "manualConfirmedAt" terisi), biarkan apa adanya. Kalau baru pertama
@@ -162,7 +162,7 @@ async function runFollowUpScan(items) {
       await setDoc(ref, { ...f, status: "open", detectedAt: serverTimestamp() });
     }
   }
-
+ 
   // Tutup OTOMATIS follow-up yang sebelumnya "open" tapi SEKARANG sudah
   // tidak terdeteksi lagi -- ini satu-satunya cara status jadi "done":
   // sumber data (Google Sheet) memang sudah benar-benar diupdate.
@@ -184,8 +184,9 @@ async function runFollowUpScan(items) {
   } catch (err) {
     console.error("Gagal cek penutupan otomatis follow-up:", err.message);
   }
-
+ 
   return currentFollowUps.map(c => c.f);
 }
-
+ 
 export { detectFollowUps, detectFollowUpsFromWip, detectFollowUpsFromProcessLogs, runFollowUpScan, RULES, TEAM_PIC_MAP, resolvePicByTeam };
+ 

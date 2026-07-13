@@ -6,31 +6,43 @@
 <title>Sample WIP Running Agent — Adira Semesta Industry</title>
 <link rel="stylesheet" href="../../shared/styles.css">
 <style>
-  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px; margin:24px 0; }
-  .kpi { background:var(--bg-panel); border:1px solid rgba(57,255,143,0.15); border-radius:12px; padding:18px; }
-  .kpi .num { font-size:1.8rem; color:var(--neon-green); font-weight:700; }
-  .kpi .label { font-size:0.8rem; color:var(--text-dim); }
-  .panel { background:var(--bg-panel); border:1px solid rgba(57,255,143,0.15); border-radius:14px; padding:20px; margin-top:20px; }
-  .panel h3 { margin-top:0; color:var(--neon-green); font-size:1rem; }
-  table { width:100%; border-collapse:collapse; font-size:0.82rem; }
-  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid rgba(57,255,143,0.08); }
-  th { color:var(--text-dim); font-weight:600; font-size:0.75rem; text-transform:uppercase; }
-  .reason-list { font-size:0.72rem; color:var(--text-dim); margin:0; padding-left:16px; }
-  .warn-item { padding:8px 0; border-bottom:1px solid rgba(255,200,87,0.1); font-size:0.85rem; }
-  .empty-note { color:var(--text-dim); font-size:0.85rem; }
-  .predict-card {
-    background:rgba(57,255,143,0.04); border:1px solid rgba(57,255,143,0.15);
-    border-radius:10px; padding:14px 16px; margin-bottom:12px;
-  }
-  .predict-card h4 { margin:0 0 8px; color:var(--warning); font-size:0.95rem; }
-  .predict-row { font-size:0.82rem; margin:5px 0; line-height:1.5; }
+  .wide-container { max-width:1720px; margin:0 auto; padding:24px 20px 60px; }
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin:16px 0; }
+  .kpi { background:var(--bg-panel); border:1px solid rgba(57,255,143,0.15); border-radius:10px; padding:14px 16px; }
+  .kpi .num { font-size:1.5rem; color:var(--neon-green); font-weight:700; }
+  .kpi .label { font-size:0.74rem; color:var(--text-dim); }
+
+  .panel { background:var(--bg-panel); border:1px solid rgba(57,255,143,0.15); border-radius:12px; padding:14px 16px; }
+  .panel h3 { margin:0 0 4px; color:var(--neon-green); font-size:0.9rem; }
+  .panel-sub { color:var(--text-dim); font-size:0.72rem; margin:0 0 8px; }
+
+  .full-row { margin-top:14px; }
+  .two-col-row { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:14px; }
+  .panel-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:14px; margin-top:14px; }
+  @media (max-width: 900px) { .two-col-row { grid-template-columns:1fr; } }
+
+  table { width:100%; border-collapse:collapse; font-size:0.78rem; }
+  th, td { text-align:left; padding:6px 8px; border-bottom:1px solid rgba(57,255,143,0.08); }
+  th { color:var(--text-dim); font-weight:600; font-size:0.68rem; text-transform:uppercase; }
+  .reason-list { font-size:0.68rem; color:var(--text-dim); margin:0; padding-left:14px; }
+  .warn-item { padding:6px 0; border-bottom:1px solid rgba(255,200,87,0.1); font-size:0.78rem; }
+  .warn-item:last-child { border-bottom:none; }
+  .empty-note { color:var(--text-dim); font-size:0.8rem; }
+  .more-note { color:var(--text-dim); font-size:0.7rem; margin-top:6px; font-style:italic; }
+
+  .predict-card { background:rgba(57,255,143,0.04); border:1px solid rgba(57,255,143,0.15); border-radius:8px; padding:10px 12px; margin-bottom:8px; }
+  .predict-card h4 { margin:0 0 6px; color:var(--warning); font-size:0.85rem; }
+  .predict-row { font-size:0.76rem; margin:3px 0; line-height:1.4; }
   .predict-row b { color:var(--text-main); }
-  .predict-solution { background:rgba(57,255,143,0.08); border-radius:8px; padding:8px 10px; margin-top:8px; font-size:0.8rem; }
-  .schedule-team { margin-bottom:18px; }
-  .schedule-team h4 { color:var(--neon-green); font-size:0.95rem; margin-bottom:8px; }
-  .schedule-item { display:flex; justify-content:space-between; padding:6px 10px; border-bottom:1px solid rgba(57,255,143,0.06); font-size:0.82rem; }
-  .schedule-item .qty { color:var(--text-dim); font-size:0.75rem; }
-  select#sortMode { background:var(--bg-black); color:var(--text-main); border:1px solid var(--neon-green-dim); border-radius:8px; padding:6px 10px; }
+  .predict-solution { background:rgba(57,255,143,0.08); border-radius:6px; padding:6px 8px; margin-top:6px; font-size:0.74rem; }
+
+  .schedule-team { margin-bottom:12px; }
+  .schedule-team h4 { color:var(--neon-green); font-size:0.85rem; margin-bottom:6px; }
+  .schedule-item { display:flex; justify-content:space-between; padding:4px 8px; border-bottom:1px solid rgba(57,255,143,0.06); font-size:0.76rem; }
+  .schedule-item .qty { color:var(--text-dim); font-size:0.7rem; }
+
+  select#sortMode { background:var(--bg-black); color:var(--text-main); border:1px solid var(--neon-green-dim); border-radius:6px; padding:4px 8px; font-size:0.78rem; }
+  .status-pill { font-size:0.68rem; }
 </style>
 </head>
 <body>
@@ -44,15 +56,16 @@
       <div class="brand">SAMPLE WIP RUNNING AGENT</div>
       <div style="display:flex;align-items:center;gap:14px;">
         <span id="userInfo" style="font-size:0.85rem;color:var(--text-dim);"></span>
+        <button id="refreshAllBtn" class="btn">🔄 Refresh</button>
         <a href="../../index.html" class="btn">Kembali ke Hub</a>
       </div>
     </div>
 
-    <div class="container">
-      <h2 style="margin-bottom:2px;">Dashboard WIP — Sample Development</h2>
-      <p id="syncStatus" style="color:var(--text-dim);margin-top:0;">
-        <span class="status-pill warn">Menunggu data dari Firestore...</span>
-      </p>
+    <div class="wide-container">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;">
+        <h2 style="margin:0;">Dashboard WIP — Sample Development</h2>
+        <p id="syncStatus" style="margin:0;"><span class="status-pill warn">Menunggu data...</span></p>
+      </div>
 
       <div class="kpi-grid">
         <div class="kpi"><div class="num" id="kpiTotal">0</div><div class="label">Total SMI Aktif</div></div>
@@ -61,77 +74,90 @@
         <div class="kpi"><div class="num" id="kpiOverdue">0</div><div class="label">Sudah Lewat Due Date</div></div>
       </div>
 
-      <div class="panel" style="border-color:rgba(57,255,143,0.35);">
-        <h3>☀ Ringkasan Pagi Ini</h3>
-        <div id="dailySummaryPanel"><p class="empty-note">Memuat ringkasan...</p></div>
+      <div class="two-col-row">
+        <div class="panel" style="border-color:rgba(57,255,143,0.35);">
+          <h3>☀ Ringkasan Pagi Ini</h3>
+          <div id="dailySummaryPanel"><p class="empty-note">Memuat ringkasan...</p></div>
+        </div>
+        <div class="panel">
+          <h3>📅 Jadwal Produksi Hari Ini (Rekomendasi AI)</h3>
+          <p class="panel-sub">Urgency + kapasitas harian riil tiap lokasi.</p>
+          <div id="schedulePanel"><p class="empty-note">Menyusun jadwal...</p></div>
+        </div>
       </div>
 
-      <div class="panel">
-        <h3>📅 Jadwal Produksi Hari Ini (Rekomendasi AI)</h3>
-        <p style="color:var(--text-dim);font-size:0.78rem;margin-top:-6px;">Disusun otomatis dari urgency + kapasitas harian riil tiap lokasi. Bottleneck = proses yang jadi penghambat (cutting atau sewing).</p>
-        <div id="schedulePanel"><p class="empty-note">Menyusun jadwal...</p></div>
+      <div class="panel-grid">
+        <div class="panel">
+          <h3>🔥 Prioritas Tinggi</h3>
+          <p class="panel-sub">Top 10 skor urgency ≥ 60</p>
+          <div id="priorityPanel"><p class="empty-note">Belum ada data.</p></div>
+        </div>
+
+        <div class="panel">
+          <h3>📋 Perlu Follow-up</h3>
+          <p class="panel-sub">Top 10, style & pekerjaan yang ditagih</p>
+          <div id="followupPanel"><p class="empty-note">Belum ada data.</p></div>
+        </div>
+
+        <div class="panel">
+          <h3>⏰ Sudah Lewat Due Date</h3>
+          <p class="panel-sub">Top 10, paling lama telat duluan</p>
+          <div id="overduePanel"><p class="empty-note">Belum ada data.</p></div>
+        </div>
+
+        <div class="panel">
+          <h3>🔧 Status Proses Nyata</h3>
+          <p class="panel-sub">Top 10. Match No SMI = pasti, nama Style (M4) = perkiraan.</p>
+          <div id="processLogPanel"><p class="empty-note">Memuat data proses...</p></div>
+        </div>
+
+        <div class="panel">
+          <h3>🔁 Trial Berulang</h3>
+          <p class="panel-sub">Top 10, ≥3x trial (sinyal masalah desain)</p>
+          <div id="trialHistoryPanel"><p class="empty-note">Memuat data trial...</p></div>
+        </div>
+
+        <div class="panel">
+          <h3>⚠ Player Testing NOK</h3>
+          <p class="panel-sub">Top 10 hasil NOK</p>
+          <div id="playerTestingPanel"><p class="empty-note">Memuat data...</p></div>
+        </div>
+
+        <div class="panel">
+          <h3>🔧 Kalibrasi Alat</h3>
+          <p class="panel-sub">Top 10, 30 hari ke depan</p>
+          <div id="kalibrasiPanel"><p class="empty-note">Memuat data...</p></div>
+        </div>
+
+        <div class="panel">
+          <h3>📅 Hari Libur Mendatang</h3>
+          <p class="panel-sub">14 hari ke depan</p>
+          <div id="holidayPanel"><p class="empty-note">Memuat data...</p></div>
+        </div>
       </div>
 
-      <div class="panel">
-        <h3>🔧 Kalibrasi Alat — Perlu Diperhatikan (30 hari ke depan)</h3>
-        <div id="kalibrasiPanel"><p class="empty-note">Memuat data kalibrasi...</p></div>
-      </div>
-
-      <div class="panel">
-        <h3>📅 Hari Libur Mendatang (14 hari ke depan)</h3>
-        <div id="holidayPanel"><p class="empty-note">Memuat data libur...</p></div>
-      </div>
-
-      <div class="panel">
-        <h3>⚠ Player Testing — Ada Hasil NOK</h3>
-        <div id="playerTestingPanel"><p class="empty-note">Memuat data player testing...</p></div>
-      </div>
-
-      <div class="panel">
-        <h3>🔁 Trial Berulang (≥3x, sinyal masalah desain)</h3>
-        <div id="trialHistoryPanel"><p class="empty-note">Memuat data trial...</p></div>
-      </div>
-
-      <div class="panel">
-        <h3>🔧 Status Proses Nyata (Artwork/Mutoh/Pattern/3D/M4)</h3>
-        <p style="color:var(--text-dim);font-size:0.78rem;margin-top:-6px;">Berdasarkan log kerja asli, bukan tebakan kata kunci. Match by <b>No SMI</b> = pasti benar. Match by <b>nama Style</b> (khusus M4) = kemungkinan besar benar.</p>
-        <div id="processLogPanel"><p class="empty-note">Memuat data proses...</p></div>
-      </div>
-
-      <div class="panel">
-        <h3>🔥 Prioritas Tinggi (skor urgency ≥ 60)</h3>
-        <div id="priorityPanel"><p class="empty-note">Belum ada data.</p></div>
-      </div>
-
-      <div class="panel">
-        <h3>📋 Perlu Follow-up — Style & Pekerjaan yang Ditagih</h3>
-        <div id="followupPanel"><p class="empty-note">Belum ada data.</p></div>
-      </div>
-
-      <div class="panel">
-        <h3>⏰ Sudah Lewat Due Date</h3>
-        <div id="overduePanel"><p class="empty-note">Belum ada data.</p></div>
-      </div>
-
-      <div class="panel">
+      <div class="panel full-row">
         <h3>⚠ Prediksi & Early Warning</h3>
         <div id="predictionPanel"><p class="empty-note">Belum ada data cukup untuk analisa.</p></div>
       </div>
 
-      <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h3>📊 WIP List — Diurutkan Berdasarkan Urgency</h3>
-          <select id="sortMode">
-            <option value="urgency">Urutkan: Urgency</option>
-            <option value="due_date">Urutkan: Due Date</option>
-          </select>
+      <div class="panel full-row">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+          <h3>📊 WIP List — Top 10 Urgency</h3>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <select id="sortMode">
+              <option value="urgency">Urutkan: Urgency</option>
+              <option value="due_date">Urutkan: Due Date</option>
+            </select>
+            <button id="toggleTableBtn" class="btn" style="font-size:0.75rem;padding:5px 10px;">Tampilkan Semua</button>
+          </div>
         </div>
         <div style="overflow-x:auto;">
           <table id="wipTable">
             <thead>
               <tr>
                 <th>Style</th><th>Customer</th><th>Status</th><th>Due Date</th>
-                <th>Sisa Hari</th><th>Skor Urgency</th><th>Alasan</th>
+                <th>Sisa Hari</th><th>Skor</th><th>Alasan</th>
               </tr>
             </thead>
             <tbody id="wipTableBody">
@@ -146,22 +172,27 @@
   <script type="module">
     import { watchAuthState } from "../../shared/auth.js";
     import { db } from "../../shared/firebase-config.js";
-    import { collection, onSnapshot, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    import { collection, getDocs, getDoc, doc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
     import { rankByUrgency } from "../../shared/priority-engine.js";
     import { detectFollowUps, runFollowUpScan } from "../../shared/followup-engine.js";
     import { runFullPrediction } from "../../shared/prediction-engine.js";
-    import { startProcessLogListeners, checkProcessStatusForItem, checkTrialHistory, checkPlayerTestingFeedback } from "../../shared/process-log-engine.js";
+    import { startProcessLogListeners, refreshProcessLogs, checkProcessStatusForItem, checkTrialHistory, checkPlayerTestingFeedback } from "../../shared/process-log-engine.js";
     import { loadHolidays, getHolidayName, getUpcomingHolidays } from "../../shared/holiday-utils.js";
-    import { startKalibrasiListener, getExpiringCalibrations } from "../../shared/kalibrasi-utils.js";
+    import { startKalibrasiListener, refreshKalibrasi, getExpiringCalibrations } from "../../shared/kalibrasi-utils.js";
     import { generateDailySchedule } from "../../shared/schedule-engine.js";
+
+    const TOP_N = 10;
 
     const guardScreen = document.getElementById("guardScreen");
     const appScreen = document.getElementById("appScreen");
     const userInfo = document.getElementById("userInfo");
     const syncStatus = document.getElementById("syncStatus");
     const sortMode = document.getElementById("sortMode");
+    const toggleTableBtn = document.getElementById("toggleTableBtn");
+    const refreshAllBtn = document.getElementById("refreshAllBtn");
 
     let latestItems = [];
+    let showAllTable = false;
 
     watchAuthState((user) => {
       if (!user) {
@@ -179,23 +210,39 @@
       });
     });
 
-    function startRealtimeSync() {
-      // Real-time listener ke collection "wip_data" (diisi oleh Apps Script sync)
-      onSnapshot(collection(db, "wip_data"), (snapshot) => {
+    // Semua sumber data auto-refresh tiap 15 menit -- bukan real-time terus,
+    // supaya hemat kuota baca Firestore (sesuai limitasi Firebase Spark/gratis).
+    const WIP_REFRESH_INTERVAL_MS = 15 * 60 * 1000;
+    let wipRefreshTimer = null;
+
+    async function loadWipDataOnce() {
+      try {
+        const snapshot = await getDocs(collection(db, "wip_data"));
         latestItems = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        syncStatus.innerHTML = `<span class="status-pill ok">Live · ${latestItems.length} record · update terakhir ${new Date().toLocaleTimeString('id-ID')}</span>`;
+        syncStatus.innerHTML = `<span class="status-pill ok">${latestItems.length} record · update ${new Date().toLocaleTimeString('id-ID')} · auto tiap 15 menit</span>`;
         renderAll(latestItems);
-      }, (err) => {
-        syncStatus.innerHTML = `<span class="status-pill danger">Belum ada koneksi ke wip_data (${err.message})</span>`;
-      });
+      } catch (err) {
+        syncStatus.innerHTML = `<span class="status-pill danger">Gagal load wip_data (${err.message})</span>`;
+      }
     }
+
+    function startRealtimeSync() {
+      loadWipDataOnce();
+      if (wipRefreshTimer) clearInterval(wipRefreshTimer);
+      wipRefreshTimer = setInterval(loadWipDataOnce, WIP_REFRESH_INTERVAL_MS);
+    }
+
+    let lastFollowUpScanAt = 0;
+    const FOLLOWUP_SCAN_MIN_INTERVAL_MS = 15 * 60 * 1000;
 
     function renderAll(items) {
       renderDisplay(items);
-      // Auto-tulis follow-up ke Firestore HANYA dipanggil dari sini (data WIP
-      // beneran berubah), bukan dari refresh berkala log proses -- supaya
-      // tidak nulis ulang ratusan dokumen tiap 3 menit tanpa perlu.
-      runFollowUpScan(items).catch(err => console.error("Auto follow-up scan gagal:", err));
+      const now = Date.now();
+      if (now - lastFollowUpScanAt >= FOLLOWUP_SCAN_MIN_INTERVAL_MS) {
+        lastFollowUpScanAt = now;
+        const topUrgentItems = rankByUrgency(items).slice(0, 20);
+        runFollowUpScan(topUrgentItems).catch(err => console.error("Auto follow-up scan gagal:", err));
+      }
     }
 
     function renderDisplay(items) {
@@ -213,157 +260,12 @@
       renderPrediction(items);
     }
 
-    function renderPlayerTestingPanel(items) {
-      const panel = document.getElementById("playerTestingPanel");
-      const activeItems = items.filter(i => {
-        const status = String(i.active_non_active_smi || "").toLowerCase();
-        return status.includes("active") && !status.includes("non");
-      });
-
-      const findings = [];
-      activeItems.forEach(item => {
-        const result = checkPlayerTestingFeedback(item);
-        if (result) findings.push({ ...result, style: item.style, smiId: item.no_smi || item._sourceRow });
-      });
-
-      if (findings.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada hasil player testing NOK untuk SMI aktif saat ini. 👍</p>`;
-        return;
-      }
-
-      panel.innerHTML = findings.map(f => `
-        <div class="warn-item">
-          <strong>${f.style}</strong> (${f.smiId}) — <span class="status-pill danger">${f.nokCount} dari ${f.totalTests} test NOK</span>
-          <span class="status-pill warn" style="margin-left:8px;">PIC: ${f.pic}</span>
-          ${f.latestNote ? `<div style="color:var(--text-dim);font-size:0.75rem;margin-top:4px;">Catatan: "${f.latestNote}"</div>` : ""}
-        </div>
-      `).join("");
+    // Helper: potong ke top N, kasih catatan sisa
+    function capList(arr, n = TOP_N) {
+      return { shown: arr.slice(0, n), remaining: Math.max(0, arr.length - n), total: arr.length };
     }
-
-    function renderTrialHistoryPanel(items) {
-      const panel = document.getElementById("trialHistoryPanel");
-      const activeItems = items.filter(i => {
-        const status = String(i.active_non_active_smi || "").toLowerCase();
-        return status.includes("active") && !status.includes("non");
-      });
-
-      const findings = [];
-      activeItems.forEach(item => {
-        const result = checkTrialHistory(item);
-        if (result) findings.push({ ...result, style: item.style, smiId: item.no_smi || item._sourceRow });
-      });
-
-      if (findings.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada style dengan trial berulang saat ini. 👍</p>`;
-        return;
-      }
-
-      panel.innerHTML = findings.map(f => `
-        <div class="warn-item">
-          <strong>${f.style}</strong> (${f.smiId}) — sudah trial <strong style="color:var(--warning);">${f.trialCount}x</strong>
-          <span class="status-pill warn" style="margin-left:8px;">PIC: ${f.pic}</span>
-          ${f.latestNote ? `<div style="color:var(--text-dim);font-size:0.75rem;margin-top:4px;">Catatan trial terakhir: "${f.latestNote}"</div>` : ""}
-        </div>
-      `).join("");
-    }
-
-    function renderProcessLogPanel(items) {
-      const panel = document.getElementById("processLogPanel");
-      const activeItems = items.filter(i => {
-        const status = String(i.active_non_active_smi || "").toLowerCase();
-        return status.includes("active") && !status.includes("non");
-      });
-
-      const allFindings = [];
-      activeItems.forEach(item => {
-        const findings = checkProcessStatusForItem(item);
-        findings.forEach(f => allFindings.push({ ...f, style: item.style, smiId: item.no_smi || item._sourceRow }));
-      });
-
-      if (allFindings.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada proses yang tertunda terdeteksi saat ini. 👍</p>`;
-        return;
-      }
-
-      panel.innerHTML = allFindings.map(f => `
-        <div class="warn-item">
-          <strong>${f.style}</strong> (${f.smiId}) — <em>${f.process}</em> belum selesai (${f.unfinishedCount}/${f.totalRows} baris)
-          <span class="status-pill warn" style="margin-left:8px;">PIC: ${f.pic}</span>
-          <span class="status-pill ${f.matchType === 'smi' ? 'ok' : 'warn'}" style="margin-left:6px;font-size:0.68rem;">
-            ${f.matchType === 'smi' ? 'match: No SMI (pasti)' : 'match: nama Style (perkiraan)'}
-          </span>
-          ${f.isOverdue
-            ? `<span class="status-pill danger" style="margin-left:6px;font-size:0.68rem;">TELAT</span>`
-            : `<span class="status-pill" style="margin-left:6px;font-size:0.68rem;background:rgba(122,145,135,0.15);color:var(--text-dim);">belum jatuh tempo</span>`}
-          ${f.fulfillerLabel ? `<span class="status-pill warn" style="margin-left:6px;font-size:0.68rem;">koordinasi ke: ${f.fulfillerLabel}</span>` : ""}
-          ${f.sampleTarget ? `<div style="color:var(--text-dim);font-size:0.75rem;margin-top:4px;">Target: ${f.sampleTarget}</div>` : ""}
-        </div>
-      `).join("");
-    }
-
-    async function loadDailySummary() {
-      const panel = document.getElementById("dailySummaryPanel");
-      try {
-        const snapshot = await getDoc(doc(db, "daily_summary", "latest"));
-        if (!snapshot.exists()) {
-          panel.innerHTML = `<p class="empty-note">Belum ada ringkasan. Jalankan "generateDailySummary" di Apps Script, atau tunggu trigger otomatis jam 7 pagi.</p>`;
-          return;
-        }
-        const data = snapshot.data();
-        const generatedTime = data.generatedAt ? new Date(data.generatedAt).toLocaleString('id-ID') : "-";
-        const sourceTag = data.source === "claude_ai"
-          ? `<span class="status-pill ok" style="font-size:0.65rem;">Ditulis Claude AI</span>`
-          : `<span class="status-pill" style="font-size:0.65rem;background:rgba(122,145,135,0.15);color:var(--text-dim);">Template otomatis</span>`;
-        panel.innerHTML = `
-          <p style="font-size:0.95rem;line-height:1.6;">${data.summaryText || "-"}</p>
-          <div style="margin-top:8px;">${sourceTag} <span style="color:var(--text-dim);font-size:0.72rem;margin-left:8px;">Dibuat: ${generatedTime}</span></div>
-        `;
-      } catch (err) {
-        panel.innerHTML = `<p class="empty-note">Gagal load ringkasan: ${err.message}</p>`;
-      }
-    }
-
-    function renderSchedulePanel(items) {
-      const panel = document.getElementById("schedulePanel");
-      const schedule = generateDailySchedule(items);
-      const teamKeys = Object.keys(schedule);
-
-      if (teamKeys.every(k => schedule[k].today.length === 0)) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada SMI aktif untuk dijadwalkan saat ini.</p>`;
-        return;
-      }
-
-      panel.innerHTML = teamKeys.map(teamKey => {
-        const s = schedule[teamKey];
-        const overCapacity = s.todayTotalPcs > s.dailyCapacity;
-        return `
-          <div class="schedule-team">
-            <h4>${s.teamLabel} — PIC: ${s.pic}
-              <span class="status-pill ${overCapacity ? 'danger' : 'ok'}" style="margin-left:8px;font-size:0.68rem;">
-                ${s.todayTotalPcs} / ${s.dailyCapacity} pcs kapasitas harian
-              </span>
-              <span class="status-pill warn" style="margin-left:6px;font-size:0.68rem;">bottleneck: ${s.bottleneck}</span>
-            </h4>
-            <div style="font-size:0.78rem;color:var(--text-dim);margin-bottom:6px;">Kerjakan hari ini (${s.today.length} style):</div>
-            ${s.today.length === 0 ? `<p class="empty-note">Tidak ada.</p>` : s.today.map(item => `
-              <div class="schedule-item">
-                <span>${item.style || "-"} (${item.no_smi || item._sourceRow})</span>
-                <span class="qty">${item.qty_pcs || 0} pcs · skor ${item._urgency.score}</span>
-              </div>
-            `).join("")}
-            ${s.next.length > 0 ? `
-              <div style="font-size:0.78rem;color:var(--text-dim);margin:10px 0 6px;">Antrian berikutnya (${s.next.length} style):</div>
-              ${s.next.slice(0, 5).map(item => `
-                <div class="schedule-item" style="opacity:0.6;">
-                  <span>${item.style || "-"} (${item.no_smi || item._sourceRow})</span>
-                  <span class="qty">${item.qty_pcs || 0} pcs</span>
-                </div>
-              `).join("")}
-              ${s.next.length > 5 ? `<div style="color:var(--text-dim);font-size:0.72rem;margin-top:4px;">+ ${s.next.length - 5} style lagi...</div>` : ""}
-            ` : ""}
-          </div>
-        `;
-      }).join("");
+    function moreNote(remaining, total) {
+      return remaining > 0 ? `<div class="more-note">+ ${remaining} lagi (total ${total})</div>` : "";
     }
 
     function renderKPI(ranked) {
@@ -376,88 +278,92 @@
 
     function renderKalibrasiPanel() {
       const panel = document.getElementById("kalibrasiPanel");
-      const expiring = getExpiringCalibrations(30);
-      if (expiring.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada alat yang perlu kalibrasi ulang dalam 30 hari ke depan. 👍</p>`;
+      const all = getExpiringCalibrations(30);
+      if (all.length === 0) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada alat perlu kalibrasi dalam 30 hari. 👍</p>`;
         return;
       }
-      panel.innerHTML = expiring.map(t => `
+      const { shown, remaining, total } = capList(all);
+      panel.innerHTML = shown.map(t => `
         <div class="warn-item">
           <strong>${t.nama_alat || "-"}</strong> (${t.kode_alat || "-"}) — PIC: ${t.nama_pic || "-"}
           ${t.remainingDays < 0
-            ? `<span class="status-pill danger" style="margin-left:8px;">SUDAH EXPIRED ${Math.abs(t.remainingDays)} hari lalu</span>`
-            : `<span class="status-pill warn" style="margin-left:8px;">Exp dalam ${t.remainingDays} hari</span>`}
-          <div style="color:var(--text-dim);font-size:0.75rem;margin-top:4px;">Tanggal exp: ${t.expDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+            ? `<span class="status-pill danger" style="margin-left:6px;">EXPIRED ${Math.abs(t.remainingDays)}h lalu</span>`
+            : `<span class="status-pill warn" style="margin-left:6px;">${t.remainingDays}h lagi</span>`}
         </div>
-      `).join("");
+      `).join("") + moreNote(remaining, total);
     }
 
     function renderHolidayPanel() {
       const panel = document.getElementById("holidayPanel");
-      const upcoming = getUpcomingHolidays(14);
-      if (upcoming.length === 0) {
+      const all = getUpcomingHolidays(14);
+      if (all.length === 0) {
         panel.innerHTML = `<p class="empty-note">Tidak ada hari libur dalam 14 hari ke depan.</p>`;
         return;
       }
-      panel.innerHTML = upcoming.map(h => `
+      const { shown, remaining, total } = capList(all);
+      panel.innerHTML = shown.map(h => `
         <div class="warn-item">
-          <strong>${h.date.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}</strong>
-          <span style="color:var(--text-dim);margin-left:8px;">${h.name}</span>
+          <strong>${h.date.toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short' })}</strong>
+          <span style="color:var(--text-dim);margin-left:6px;">${h.name}</span>
         </div>
-      `).join("");
+      `).join("") + moreNote(remaining, total);
     }
 
     function renderPriorityPanel(ranked) {
       const panel = document.getElementById("priorityPanel");
-      const highPriority = ranked.filter(i => i._urgency.score >= 60);
-      if (highPriority.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada style dengan prioritas tinggi saat ini. 👍</p>`;
+      const all = ranked.filter(i => i._urgency.score >= 60);
+      if (all.length === 0) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada style prioritas tinggi. 👍</p>`;
         return;
       }
-      panel.innerHTML = highPriority.map(item => `
+      const { shown, remaining, total } = capList(all);
+      panel.innerHTML = shown.map(item => `
         <div class="warn-item">
-          <strong>${item.style || "-"}</strong> (${item.no_smi || item._sourceRow}) — ${item.customer || "-"}
-          <span class="status-pill danger" style="margin-left:8px;">Skor ${item._urgency.score}</span>
-          <ul class="reason-list">${item._urgency.reasons.map(r => `<li>${r}</li>`).join("")}</ul>
+          <strong>${item.style || "-"}</strong> (${item.no_smi || item._sourceRow})
+          <span class="status-pill danger" style="margin-left:6px;">Skor ${item._urgency.score}</span>
+          <ul class="reason-list">${item._urgency.reasons.slice(0, 2).map(r => `<li>${r}</li>`).join("")}</ul>
         </div>
-      `).join("");
+      `).join("") + moreNote(remaining, total);
     }
 
     function renderOverdue(ranked) {
       const panel = document.getElementById("overduePanel");
-      const overdue = ranked.filter(i => i._urgency.remainingDays !== null && i._urgency.remainingDays < 0);
-      if (overdue.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada yang lewat due date saat ini. 👍</p>`;
+      const all = ranked
+        .filter(i => i._urgency.remainingDays !== null && i._urgency.remainingDays < 0)
+        .sort((a, b) => a._urgency.remainingDays - b._urgency.remainingDays);
+      if (all.length === 0) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada yang lewat due date. 👍</p>`;
         return;
       }
-      panel.innerHTML = overdue.map(item => `
+      const { shown, remaining, total } = capList(all);
+      panel.innerHTML = shown.map(item => `
         <div class="warn-item">
-          <strong>${item.style || "-"}</strong> (${item.no_smi || item._sourceRow}) — ${item.customer || "-"}
-          <span class="status-pill danger" style="margin-left:8px;">Lewat ${Math.abs(item._urgency.remainingDays)} hari</span>
-          <span style="color:var(--text-dim);margin-left:8px;">Due: ${item.due_date || "-"}</span>
+          <strong>${item.style || "-"}</strong> (${item.no_smi || item._sourceRow})
+          <span class="status-pill danger" style="margin-left:6px;">Lewat ${Math.abs(item._urgency.remainingDays)}h</span>
         </div>
-      `).join("");
+      `).join("") + moreNote(remaining, total);
     }
 
     function renderTable(ranked) {
       const tbody = document.getElementById("wipTableBody");
       if (ranked.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-note">Belum ada data. Pastikan Apps Script sync sudah jalan (lihat README).</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-note">Belum ada data.</td></tr>`;
         return;
       }
-      tbody.innerHTML = ranked.map(item => {
+      const list = showAllTable ? ranked : ranked.slice(0, TOP_N);
+      tbody.innerHTML = list.map(item => {
         const holidayName = item.due_date ? getHolidayName(item.due_date) : null;
         return `
         <tr>
           <td>${item.style || "-"}</td>
           <td>${item.customer || "-"}</td>
           <td>${item.status || "-"}</td>
-          <td>${item.due_date || "-"}${holidayName ? `<br><span class="status-pill danger" style="font-size:0.65rem;">Jatuh di hari libur: ${holidayName}</span>` : ""}</td>
+          <td>${item.due_date || "-"}${holidayName ? `<br><span class="status-pill danger">Libur: ${holidayName}</span>` : ""}</td>
           <td>${item._urgency.remainingDays !== null ? item._urgency.remainingDays + "d" : "-"}</td>
           <td><strong style="color:var(--neon-green)">${item._urgency.score}</strong></td>
-          <td><ul class="reason-list">${item._urgency.reasons.map(r => `<li>${r}</li>`).join("") || "<li>Normal</li>"}</ul></td>
-        </tr>
-      `;
+          <td><ul class="reason-list">${item._urgency.reasons.slice(0, 2).map(r => `<li>${r}</li>`).join("") || "<li>Normal</li>"}</ul></td>
+        </tr>`;
       }).join("");
     }
 
@@ -465,41 +371,170 @@
       const panel = document.getElementById("followupPanel");
       const all = items.flatMap(i => detectFollowUps(i));
       if (all.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada follow-up yang perlu dilakukan saat ini. 👍</p>`;
+        panel.innerHTML = `<p class="empty-note">Tidak ada follow-up. 👍</p>`;
         return;
       }
-      panel.innerHTML = all.map(f => `
+      const { shown, remaining, total } = capList(all);
+      panel.innerHTML = shown.map(f => `
         <div class="warn-item">
           <strong>${f.style}</strong> (${f.smiId}) — <em>${f.label}</em>
-          <span class="status-pill warn" style="margin-left:8px;">PIC: ${f.assignedTo}</span>
-          <span style="color:var(--text-dim);margin-left:8px;font-size:0.75rem;">${f.team}</span>
-          ${f.matchType === "style" ? `<span class="status-pill warn" style="margin-left:6px;font-size:0.68rem;">match: nama Style</span>` : ""}
+          <span class="status-pill warn" style="margin-left:6px;">PIC: ${f.assignedTo}</span>
         </div>
-      `).join("");
+      `).join("") + moreNote(remaining, total);
+    }
+
+    function renderProcessLogPanel(items) {
+      const panel = document.getElementById("processLogPanel");
+      const activeItems = items.filter(i => {
+        const status = String(i.active_non_active_smi || "").toLowerCase();
+        return status.includes("active") && !status.includes("non");
+      });
+
+      const allFindings = [];
+      activeItems.forEach(item => {
+        checkProcessStatusForItem(item).forEach(f => allFindings.push({ ...f, style: item.style, smiId: item.no_smi || item._sourceRow }));
+      });
+      allFindings.sort((a, b) => (b.isOverdue === true) - (a.isOverdue === true));
+
+      if (allFindings.length === 0) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada proses tertunda. 👍</p>`;
+        return;
+      }
+      const { shown, remaining, total } = capList(allFindings);
+      panel.innerHTML = shown.map(f => `
+        <div class="warn-item">
+          <strong>${f.style}</strong> (${f.smiId}) — <em>${f.process}</em>
+          <span class="status-pill warn" style="margin-left:6px;">PIC: ${f.pic}</span>
+          ${f.isOverdue ? `<span class="status-pill danger" style="margin-left:4px;">TELAT</span>` : ""}
+        </div>
+      `).join("") + moreNote(remaining, total);
+    }
+
+    async function loadDailySummary() {
+      const panel = document.getElementById("dailySummaryPanel");
+      try {
+        const snapshot = await getDoc(doc(db, "daily_summary", "latest"));
+        if (!snapshot.exists()) {
+          panel.innerHTML = `<p class="empty-note">Belum ada ringkasan.</p>`;
+          return;
+        }
+        const data = snapshot.data();
+        const generatedTime = data.generatedAt ? new Date(data.generatedAt).toLocaleString('id-ID') : "-";
+        const sourceTag = data.source === "claude_ai"
+          ? `<span class="status-pill ok">Claude AI</span>`
+          : `<span class="status-pill" style="background:rgba(122,145,135,0.15);color:var(--text-dim);">Template</span>`;
+        panel.innerHTML = `
+          <p style="font-size:0.85rem;line-height:1.5;">${data.summaryText || "-"}</p>
+          <div>${sourceTag} <span style="color:var(--text-dim);font-size:0.68rem;margin-left:6px;">${generatedTime}</span></div>
+        `;
+      } catch (err) {
+        panel.innerHTML = `<p class="empty-note">Gagal load: ${err.message}</p>`;
+      }
+    }
+
+    function renderSchedulePanel(items) {
+      const panel = document.getElementById("schedulePanel");
+      const schedule = generateDailySchedule(items);
+      const teamKeys = Object.keys(schedule);
+
+      if (teamKeys.every(k => schedule[k].today.length === 0)) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada SMI aktif untuk dijadwalkan.</p>`;
+        return;
+      }
+
+      panel.innerHTML = teamKeys.map(teamKey => {
+        const s = schedule[teamKey];
+        const overCapacity = s.todayTotalPcs > s.dailyCapacity;
+        const { shown, remaining, total } = capList(s.today);
+        return `
+          <div class="schedule-team">
+            <h4>${s.teamLabel} — PIC: ${s.pic}
+              <span class="status-pill ${overCapacity ? 'danger' : 'ok'}" style="margin-left:6px;">${s.todayTotalPcs}/${s.dailyCapacity} pcs</span>
+            </h4>
+            ${shown.length === 0 ? `<p class="empty-note">Tidak ada.</p>` : shown.map(item => `
+              <div class="schedule-item">
+                <span>${item.style || "-"} (${item.no_smi || item._sourceRow})</span>
+                <span class="qty">${item.qty_pcs || 0} pcs</span>
+              </div>
+            `).join("")}
+            ${moreNote(remaining, total)}
+            ${s.next.length > 0 ? `<div style="color:var(--text-dim);font-size:0.7rem;margin-top:4px;">+ ${s.next.length} antrian berikutnya</div>` : ""}
+          </div>
+        `;
+      }).join("");
+    }
+
+    function renderPlayerTestingPanel(items) {
+      const panel = document.getElementById("playerTestingPanel");
+      const activeItems = items.filter(i => {
+        const status = String(i.active_non_active_smi || "").toLowerCase();
+        return status.includes("active") && !status.includes("non");
+      });
+      const findings = [];
+      activeItems.forEach(item => {
+        const result = checkPlayerTestingFeedback(item);
+        if (result) findings.push({ ...result, style: item.style, smiId: item.no_smi || item._sourceRow });
+      });
+      if (findings.length === 0) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada hasil NOK. 👍</p>`;
+        return;
+      }
+      const { shown, remaining, total } = capList(findings);
+      panel.innerHTML = shown.map(f => `
+        <div class="warn-item">
+          <strong>${f.style}</strong> (${f.smiId}) — <span class="status-pill danger">${f.nokCount}/${f.totalTests} NOK</span>
+          <span class="status-pill warn" style="margin-left:6px;">PIC: ${f.pic}</span>
+        </div>
+      `).join("") + moreNote(remaining, total);
+    }
+
+    function renderTrialHistoryPanel(items) {
+      const panel = document.getElementById("trialHistoryPanel");
+      const activeItems = items.filter(i => {
+        const status = String(i.active_non_active_smi || "").toLowerCase();
+        return status.includes("active") && !status.includes("non");
+      });
+      const findings = [];
+      activeItems.forEach(item => {
+        const result = checkTrialHistory(item);
+        if (result) findings.push({ ...result, style: item.style, smiId: item.no_smi || item._sourceRow });
+      });
+      findings.sort((a, b) => b.trialCount - a.trialCount);
+      if (findings.length === 0) {
+        panel.innerHTML = `<p class="empty-note">Tidak ada trial berulang. 👍</p>`;
+        return;
+      }
+      const { shown, remaining, total } = capList(findings);
+      panel.innerHTML = shown.map(f => `
+        <div class="warn-item">
+          <strong>${f.style}</strong> (${f.smiId}) — trial <strong style="color:var(--warning);">${f.trialCount}x</strong>
+          <span class="status-pill warn" style="margin-left:6px;">PIC: ${f.pic}</span>
+        </div>
+      `).join("") + moreNote(remaining, total);
     }
 
     function renderPrediction(items) {
       const panel = document.getElementById("predictionPanel");
       if (items.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Belum ada data cukup untuk analisa.</p>`;
+        panel.innerHTML = `<p class="empty-note">Belum ada data cukup.</p>`;
         return;
       }
       const result = runFullPrediction(items);
       const all = [...result.capacity, ...result.recurringDelays, ...result.qualityTrend];
       if (all.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada sinyal masalah signifikan terdeteksi. 👍</p>`;
+        panel.innerHTML = `<p class="empty-note">Tidak ada sinyal masalah signifikan. 👍</p>`;
         return;
       }
-      panel.innerHTML = all.map(w => `
+      const { shown, remaining, total } = capList(all);
+      panel.innerHTML = shown.map(w => `
         <div class="predict-card">
           <h4>⚠ ${w.title}</h4>
-          <div class="predict-row"><b>Masalahnya:</b> ${w.problem}</div>
-          <div class="predict-row"><b>Dampaknya:</b> ${w.impact}</div>
-          <div class="predict-row"><b>Ke jadwal/deadline:</b> ${w.deadlineImpact}</div>
-          <div class="predict-row"><b>Perlu di-follow up ke:</b> <span class="status-pill warn">${w.pic}</span></div>
-          <div class="predict-solution"><b>💡 Saran solusi:</b> ${w.solution}</div>
+          <div class="predict-row"><b>Masalah:</b> ${w.problem}</div>
+          <div class="predict-row"><b>Dampak:</b> ${w.impact}</div>
+          <div class="predict-row"><b>Follow up ke:</b> <span class="status-pill warn">${w.pic}</span></div>
+          <div class="predict-solution"><b>💡 Solusi:</b> ${w.solution}</div>
         </div>
-      `).join("");
+      `).join("") + moreNote(remaining, total);
     }
 
     sortMode.addEventListener("change", () => {
@@ -507,7 +542,26 @@
       if (sortMode.value === "due_date") {
         sorted = sorted.sort((a, b) => new Date(a.due_date || "9999-12-31") - new Date(b.due_date || "9999-12-31"));
       }
-      renderAll(sorted);
+      renderDisplay(sorted);
+    });
+
+    toggleTableBtn.addEventListener("click", () => {
+      showAllTable = !showAllTable;
+      toggleTableBtn.textContent = showAllTable ? "Tampilkan Top 10" : "Tampilkan Semua";
+      renderTable(rankByUrgency(latestItems));
+    });
+
+    refreshAllBtn.addEventListener("click", async () => {
+      refreshAllBtn.disabled = true;
+      refreshAllBtn.textContent = "🔄 Memuat...";
+      await Promise.all([
+        loadWipDataOnce(),
+        refreshProcessLogs(() => { if (latestItems.length) renderDisplay(latestItems); }),
+        refreshKalibrasi(renderKalibrasiPanel),
+        loadDailySummary()
+      ]);
+      refreshAllBtn.disabled = false;
+      refreshAllBtn.textContent = "🔄 Refresh";
     });
   </script>
 

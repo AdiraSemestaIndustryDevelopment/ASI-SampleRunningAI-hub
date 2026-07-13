@@ -18,12 +18,12 @@
 import { db } from "./firebase-config.js";
 import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-// Interval refresh untuk collection log yang TIDAK butuh real-time detik-per-detik
-// (Artwork/Mutoh/Pattern/3D/M4/Material/TrialLog/dst). Ini sengaja BUKAN onSnapshot
-// terus-menerus, supaya tidak boros kuota baca Firestore (data ini cukup diperbarui
-// tiap beberapa menit, bukan instan).
-const REFRESH_INTERVAL_MS = 3 * 60 * 1000; // 3 menit
-let refreshTimer = null;
+// PENTING soal kuota Firestore: collection log (Artwork/Mutoh/Pattern/dst)
+// jumlahnya bisa ribuan dokumen. Data ini SENGAJA cuma dimuat SEKALI saat
+// dashboard dibuka -- BUKAN auto-refresh berkala -- supaya tidak boros
+// kuota baca harian (Firebase Spark gratis cuma 50rb baca/hari).
+// Untuk data terbaru, panggil refreshProcessLogs() manual (misal lewat
+// tombol "Refresh" di dashboard).
 
 const PROCESS_DEFS = [
   { key: "artwork", collection: "artwork_log", pic: "Tendi", label: "Artwork", finishField: "finish_artwork", targetField: "target_artwork" },
@@ -48,10 +48,11 @@ function resolvePicFromRowTeam(row) {
 }
 
 let cachedLogs = {}; // { artwork_log: [...], mutoh_log: [...], ... }
-let listeners = [];
+const REFRESH_INTERVAL_MS = 15 * 60 * 1000; // 15 menit -- hemat kuota, bukan real-time
+let refreshTimer = null;
 
 /**
- * Mulai dengerin semua collection log secara real-time.
+ * Mulai muat semua collection log, lalu auto-refresh tiap 15 menit.
  * Panggil sekali di awal (misal saat dashboard load).
  */
 async function loadAllLogCollectionsOnce(onUpdateCallback) {
@@ -69,19 +70,22 @@ async function loadAllLogCollectionsOnce(onUpdateCallback) {
 }
 
 function startProcessLogListeners(onUpdateCallback) {
-  // Load pertama kali langsung, lalu refresh berkala (BUKAN real-time terus-menerus)
-  // supaya hemat kuota baca Firestore -- data log proses cukup update tiap
-  // beberapa menit, tidak perlu instan seperti wip_data.
   loadAllLogCollectionsOnce(onUpdateCallback);
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = setInterval(() => loadAllLogCollectionsOnce(onUpdateCallback), REFRESH_INTERVAL_MS);
 }
 
+/**
+ * Panggil manual (misal dari tombol "Refresh") untuk ambil data terbaru
+ * di luar jadwal otomatis 15 menit.
+ */
+function refreshProcessLogs(onUpdateCallback) {
+  return loadAllLogCollectionsOnce(onUpdateCallback);
+}
+
 function stopProcessLogListeners() {
   if (refreshTimer) clearInterval(refreshTimer);
   refreshTimer = null;
-  listeners.forEach(unsub => unsub());
-  listeners = [];
 }
 
 /**
@@ -222,4 +226,4 @@ function checkPlayerTestingFeedback(wipItem) {
   };
 }
 
-export { startProcessLogListeners, stopProcessLogListeners, checkProcessStatusForItem, checkTrialHistory, checkPlayerTestingFeedback, findRelatedLogRows, formatDateValue, isTargetOverdue, PROCESS_DEFS };
+export { startProcessLogListeners, refreshProcessLogs, stopProcessLogListeners, checkProcessStatusForItem, checkTrialHistory, checkPlayerTestingFeedback, findRelatedLogRows, formatDateValue, isTargetOverdue, PROCESS_DEFS };

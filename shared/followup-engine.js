@@ -15,6 +15,9 @@ import { db } from "./firebase-config.js";
 import {
   doc,
   setDoc,
+  updateDoc,
+  getDocs,
+  collection,
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { checkProcessStatusForItem } from "./process-log-engine.js";
@@ -124,22 +127,54 @@ function detectFollowUps(item) {
  * Jalankan ke semua item, simpan hasilnya ke Firestore collection "followups".
  */
 async function runFollowUpScan(items) {
-  const allFollowUps = [];
+  const currentFollowUps = [];
+  const currentDocIds = new Set();
 
   for (const item of items) {
     const followUps = detectFollowUps(item);
     for (const f of followUps) {
       const docId = `${f.smiId}_${f.ruleId}`.replace(/\s+/g, "_");
-      await setDoc(doc(db, "followups", docId), {
-        ...f,
-        status: "open",
-        detectedAt: serverTimestamp()
-      }, { merge: true });
-      allFollowUps.push(f);
+      currentDocIds.add(docId);
+      currentFollowUps.push({ docId, f });
     }
   }
 
-  return allFollowUps;
+  // Tulis/perbarui yang MASIH terdeteksi. Sengaja tidak menyentuh field
+  // "status" di sini -- kalau dokumen sudah ada (baik "open" maupun
+  // "manualConfirmedAt" terisi), biarkan apa adanya. Kalau baru pertama
+  // kali terdeteksi, baru dibuat dengan status "open".
+  for (const { docId, f } of currentFollowUps) {
+    const ref = doc(db, "followups", docId);
+    try {
+      await updateDoc(ref, { ...f, detectedAt: serverTimestamp() });
+    } catch (err) {
+      await setDoc(ref, { ...f, status: "open", detectedAt: serverTimestamp() });
+    }
+  }
+
+  // Tutup OTOMATIS follow-up yang sebelumnya "open" tapi SEKARANG sudah
+  // tidak terdeteksi lagi -- ini satu-satunya cara status jadi "done":
+  // sumber data (Google Sheet) memang sudah benar-benar diupdate.
+  // Klik "Tandai Selesai" di email SAJA tidak cukup untuk menutup ini.
+  try {
+    const snapshot = await getDocs(collection(db, "followups"));
+    const closePromises = [];
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data.status === "open" && !currentDocIds.has(docSnap.id)) {
+        closePromises.push(updateDoc(doc(db, "followups", docSnap.id), {
+          status: "done",
+          resolvedAt: serverTimestamp(),
+          resolvedVia: "data_terverifikasi_otomatis"
+        }));
+      }
+    });
+    await Promise.all(closePromises);
+  } catch (err) {
+    console.error("Gagal cek penutupan otomatis follow-up:", err.message);
+  }
+
+  return currentFollowUps.map(c => c.f);
 }
 
 export { detectFollowUps, detectFollowUpsFromWip, detectFollowUpsFromProcessLogs, runFollowUpScan, RULES, TEAM_PIC_MAP, resolvePicByTeam };

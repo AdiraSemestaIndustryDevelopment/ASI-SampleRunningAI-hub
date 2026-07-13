@@ -95,7 +95,7 @@
 
         <div class="panel">
           <h3>📋 Perlu Follow-up</h3>
-          <p class="panel-sub">Top 10, style & pekerjaan yang ditagih</p>
+          <p class="panel-sub">Top 10 — gabungan telat + deadline mendekat (≤3 hari), urgency dulu</p>
           <div id="followupPanel"><p class="empty-note">Belum ada data.</p></div>
         </div>
 
@@ -103,12 +103,6 @@
           <h3>⏰ Sudah Lewat Due Date</h3>
           <p class="panel-sub">Top 10, paling lama telat duluan</p>
           <div id="overduePanel"><p class="empty-note">Belum ada data.</p></div>
-        </div>
-
-        <div class="panel">
-          <h3>🔧 Status Proses Nyata</h3>
-          <p class="panel-sub">Top 10. Match No SMI = pasti, nama Style (M4) = perkiraan.</p>
-          <div id="processLogPanel"><p class="empty-note">Memuat data proses...</p></div>
         </div>
 
         <div class="panel">
@@ -253,7 +247,6 @@
       renderHolidayPanel();
       renderPlayerTestingPanel(items);
       renderTrialHistoryPanel(items);
-      renderProcessLogPanel(items);
       renderPriorityPanel(ranked);
       renderFollowups(items);
       renderOverdue(ranked);
@@ -370,6 +363,14 @@
     function renderFollowups(items) {
       const panel = document.getElementById("followupPanel");
       const all = items.flatMap(i => detectFollowUps(i));
+      all.sort((a, b) => {
+        const aOverdue = a.isOverdue === true ? 1 : 0;
+        const bOverdue = b.isOverdue === true ? 1 : 0;
+        if (aOverdue !== bOverdue) return bOverdue - aOverdue;
+        const aDays = a.daysUntilTarget ?? 0;
+        const bDays = b.daysUntilTarget ?? 0;
+        return aDays - bDays;
+      });
       if (all.length === 0) {
         panel.innerHTML = `<p class="empty-note">Tidak ada follow-up. 👍</p>`;
         return;
@@ -379,33 +380,8 @@
         <div class="warn-item">
           <strong>${f.style}</strong> (${f.smiId}) — <em>${f.label}</em>
           <span class="status-pill warn" style="margin-left:6px;">PIC: ${f.assignedTo}</span>
-        </div>
-      `).join("") + moreNote(remaining, total);
-    }
-
-    function renderProcessLogPanel(items) {
-      const panel = document.getElementById("processLogPanel");
-      const activeItems = items.filter(i => {
-        const status = String(i.active_non_active_smi || "").toLowerCase();
-        return status.includes("active") && !status.includes("non");
-      });
-
-      const allFindings = [];
-      activeItems.forEach(item => {
-        checkProcessStatusForItem(item).forEach(f => allFindings.push({ ...f, style: item.style, smiId: item.no_smi || item._sourceRow }));
-      });
-      allFindings.sort((a, b) => (b.isOverdue === true) - (a.isOverdue === true));
-
-      if (allFindings.length === 0) {
-        panel.innerHTML = `<p class="empty-note">Tidak ada proses tertunda. 👍</p>`;
-        return;
-      }
-      const { shown, remaining, total } = capList(allFindings);
-      panel.innerHTML = shown.map(f => `
-        <div class="warn-item">
-          <strong>${f.style}</strong> (${f.smiId}) — <em>${f.process}</em>
-          <span class="status-pill warn" style="margin-left:6px;">PIC: ${f.pic}</span>
           ${f.isOverdue ? `<span class="status-pill danger" style="margin-left:4px;">TELAT</span>` : ""}
+          ${!f.isOverdue && f.daysUntilTarget != null ? `<span class="status-pill" style="margin-left:4px;background:rgba(255,200,87,0.15);color:var(--warning);">${f.daysUntilTarget}h lagi</span>` : ""}
         </div>
       `).join("") + moreNote(remaining, total);
     }
